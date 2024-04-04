@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Unhumble",
+  "version": "1.0.0",
+  "description": "Filter out 'humbled' and 'proud' posts, and selfies from LinkedIn.",
+  "permissions": [
+    "webNavigation", "scripting", "storage"
+  ],
+  "options_page": "settings.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://www.linkedin.com/*"],
+      "all_frames": true,
+      "js": ["contentScript.js"]
+    }
+  ],
+  "icons": {
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_icon": "icons/icon48.png",
+    "default_popup": "popup.html",
+    "default_title": "LinkedIn Unhumble"
+  }
+}
