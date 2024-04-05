@@ -37,7 +37,19 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     const classification = response.choices[0].message.content;
 
                     if (classification === "single_person") {
-                        img.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
+                        let overlay = document.createElement('img');
+                        overlay.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
+                        overlay.style.position = "absolute";
+                        overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
+                        overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
+                        overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
+                        overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
+                        overlay.style.objectFit = "cover";
+                        overlay.style.opacity = "0.8";
+                        overlay.style.zIndex = "1000";
+                        img.parentNode.style.position = "relative";
+                        img.style.objectFit = "cover";
+                        img.parentNode.insertBefore(overlay, img.nextSibling);
                     }
                 } catch (error) {
                     console.error("Error classifying image:", error);
@@ -56,9 +68,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 const postText = textViewElement.innerText.toLowerCase();
                 // Check if post contains any of the keywords
                 if (postText.includes("humble") || postText.includes("humbled") || postText.includes("proud") || postText.includes("blessed") || postText.includes("grateful") || postText.includes("excited")) {
-                    textViewElement.style.color = "lightgrey";
+                    textViewElement.style.color = "#ebe7e7";
                     textViewElement.querySelectorAll('a').forEach(link => {
-                        link.style.color = "darkgrey";
+                        link.style.color = "lightgrey";
                     });
                     modifiedPostsCount++;
                     console.log("Found something!");
