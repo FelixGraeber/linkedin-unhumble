@@ -45,7 +45,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
                         overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
                         overlay.style.objectFit = "cover";
-                        overlay.style.opacity = "0.8";
+                        overlay.style.opacity = "0.69";
                         overlay.style.zIndex = "1000";
                         img.parentNode.style.position = "relative";
                         img.style.objectFit = "cover";
@@ -87,12 +87,14 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         // Call both functions to modify posts and images
         modifyLinkedInPosts();
         await classifyAndModifyImages();
+        modifyLinkedInPosts();
 
         // MutationObserver setup remains unchanged
         let observer = new MutationObserver((mutationsList, observer) => {
             console.log("Detected changes in the page, checking for new posts and images to modify...");
             modifyLinkedInPosts();
             classifyAndModifyImages(); // Note: This is an async function without await here
+            modifyLinkedInPosts();
         });
         observer.observe(document.body, {childList: true, subtree: true});
         console.log("MutationObserver set up to monitor page for changes.");
