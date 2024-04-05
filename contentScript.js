@@ -1,16 +1,16 @@
 console.log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
 
-(async function() {
-    chrome.storage.sync.get('apiKey', async function(data) {
+(async function () {
+    chrome.storage.sync.get('apiKey', async function (data) {
         const apiKey = data.apiKey; // Get API key from storage
 
         async function classifyAndModifyActiveImage() {
             const activeImageElement = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
             if (activeImageElement && activeImageElement.alt === "Bildvorschau") {
-                
+
                 console.log(`Processing active image: ${activeImageElement.src}`);
                 const imageUrl = activeImageElement.src;
-                
+
                 // Resize image for GPT processing
                 const resizedImageUrl = imageUrl + '?resize=100x100';
 
@@ -20,9 +20,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         {
                             role: "user",
                             content: [
-                                { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER SELFIE OR NON-SELFIE. RESPOND ONLY WITH 'selfie' or 'non_selfie':" },
-                                { type: "image_url", image_url: { "url": resizedImageUrl } },
-                                                       ],
+                                { type: "text", text: "RESPOND ONLY WITH 'selfie' IF THE IMAGE CONTAINS A SELFIE OF JUST ONE PERSON OR 'non_selfie' IF NOT:" },
+                                { type: "image_url", image_url: { "url": resizedImageUrl, "detail": "low" } },
+                            ],
                         },
                     ],
                     max_tokens: 300
@@ -55,7 +55,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         // Existing function to modify LinkedIn posts based on text content
         function modifyLinkedInPosts() {
             console.log("Scanning LinkedIn feed for new posts to modify...");
-            
+
             let modifiedPostsCount = 0; // Keep track of how many posts were modified
             const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
             console.log(`SELECTED: ${textViewElements} `)
@@ -75,7 +75,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 console.log("No new posts matched the criteria for modification.");
             }
         }
-        
+
         // Call both functions to modify posts and images
         modifyLinkedInPosts();
         await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
@@ -87,7 +87,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             modifyLinkedInPosts();
             classifyAndModifyActiveImage(); // Note: This is an async function without await here
         });
-        observer.observe(document.body, {childList: true, subtree: true});
+        observer.observe(document.body, { childList: true, subtree: true });
         console.log("MutationObserver set up to monitor page for changes.");
     });
 })();
