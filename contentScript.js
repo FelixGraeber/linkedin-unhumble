@@ -1,35 +1,30 @@
 console.log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
 
-(async function () {
-    chrome.storage.sync.get('apiKey', async function (data) {
+(async function() {
+    chrome.storage.sync.get('apiKey', async function(data) {
         const apiKey = data.apiKey; // Get API key from storage
 
-        async function classifyAndModifyActiveImage() {
-            const activeImageElement = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
-            if (activeImageElement && activeImageElement.alt === "Bildvorschau") {
-
-                console.log(`Processing active image: ${activeImageElement.src}`);
-                const imageUrl = activeImageElement.src;
-
-                // Resize image for GPT processing
-                const resizedImageUrl = imageUrl + '?resize=100x100';
-
+        async function classifyAndModifyImages() {
+            const imageElements = document.querySelectorAll('img.update-components-image__image');
+            for (let img of imageElements) {
+                console.log(`Processing image: ${img.src}`);
+                const imageUrl = img.src;
                 const requestBody = {
                     model: "gpt-4-vision-preview",
                     messages: [
                         {
                             role: "user",
                             content: [
-                                { type: "text", text: "RESPOND ONLY WITH 'selfie' IF THE IMAGE CONTAINS A SELFIE OF JUST ONE PERSON OR 'non_selfie' IF NOT:" },
-                                { type: "image_url", image_url: { "url": resizedImageUrl, "detail": "low" } },
-                            ],
+                                { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER SINGLE_PERSON OR NOT. RESPOND ONLY WITH 'single_person' IF ONLY 1 PERSON IS VISIBLE ON THE PHOTO OR ELSE 'other':" },
+                                { type: "image_url", image_url: { "url": imageUrl, "detail": "low"} },
+                                                       ],
                         },
                     ],
                     max_tokens: 300
                 };
 
                 try {
-                    console.log("Sending active image for classification with OpenAI API", requestBody);
+                    console.log("Sending image for classification with OpenAI API", requestBody);
                     const response = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -41,21 +36,19 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     console.log("Response from OpenAI API:", JSON.stringify(response, null, 2));
                     const classification = response.choices[0].message.content;
 
-                    if (classification === "selfie") {
-                        activeImageElement.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
+                    if (classification === "single_person") {
+                        img.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
                     }
                 } catch (error) {
-                    console.error("Error classifying active image:", error);
+                    console.error("Error classifying image:", error);
                 }
-            } else {
-                console.log("No active image found or the active element is not an image.");
             }
         }
 
         // Existing function to modify LinkedIn posts based on text content
         function modifyLinkedInPosts() {
             console.log("Scanning LinkedIn feed for new posts to modify...");
-
+            
             let modifiedPostsCount = 0; // Keep track of how many posts were modified
             const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
             console.log(`SELECTED: ${textViewElements} `)
@@ -64,6 +57,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 // Check if post contains any of the keywords
                 if (postText.includes("humble") || postText.includes("humbled") || postText.includes("proud") || postText.includes("blessed") || postText.includes("grateful") || postText.includes("excited")) {
                     textViewElement.style.color = "lightgrey";
+                    textViewElement.querySelectorAll('a').forEach(link => {
+                        link.style.color = "darkgrey";
+                    });
                     modifiedPostsCount++;
                     console.log("Found something!");
                 }
@@ -75,19 +71,18 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 console.log("No new posts matched the criteria for modification.");
             }
         }
-
+        
         // Call both functions to modify posts and images
         modifyLinkedInPosts();
-        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
-        await classifyAndModifyActiveImage();
+        await classifyAndModifyImages();
 
         // MutationObserver setup remains unchanged
         let observer = new MutationObserver((mutationsList, observer) => {
             console.log("Detected changes in the page, checking for new posts and images to modify...");
             modifyLinkedInPosts();
-            classifyAndModifyActiveImage(); // Note: This is an async function without await here
+            classifyAndModifyImages(); // Note: This is an async function without await here
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, {childList: true, subtree: true});
         console.log("MutationObserver set up to monitor page for changes.");
     });
 })();
