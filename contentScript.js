@@ -4,11 +4,16 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     chrome.storage.sync.get('apiKey', async function(data) {
         const apiKey = data.apiKey; // Get API key from storage
 
-        async function classifyAndModifyImages() {
-            const imageElements = document.querySelectorAll('img.update-components-image__image');
-            for (let img of imageElements) {
-                console.log(`Processing image: ${img.src}`);
-                const imageUrl = img.src;
+        async function classifyAndModifyActiveImage() {
+            const activeImageElement = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2);
+            if (activeImageElement && activeImageElement.alt === "Bildvorschau") {
+                
+                console.log(`Processing active image: ${activeImageElement.src}`);
+                const imageUrl = activeImageElement.src;
+                
+                // Resize image for GPT processing
+                const resizedImageUrl = imageUrl + '?resize=100x100';
+
                 const requestBody = {
                     model: "gpt-4-vision-preview",
                     messages: [
@@ -16,7 +21,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                             role: "user",
                             content: [
                                 { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER SELFIE OR NON-SELFIE. RESPOND ONLY WITH 'selfie' or 'non_selfie':" },
-                                { type: "image_url", image_url: { "url": imageUrl } },
+                                { type: "image_url", image_url: { "url": resizedImageUrl } },
                                                        ],
                         },
                     ],
@@ -24,7 +29,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 };
 
                 try {
-                    console.log("Sending image for classification with OpenAI API", requestBody);
+                    console.log("Sending active image for classification with OpenAI API", requestBody);
                     const response = await fetch('https://api.openai.com/v1/chat/completions', {
                         method: 'POST',
                         headers: {
@@ -37,11 +42,13 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     const classification = response.choices[0].message.content;
 
                     if (classification === "selfie") {
-                        img.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
+                        activeImageElement.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
                     }
                 } catch (error) {
-                    console.error("Error classifying image:", error);
+                    console.error("Error classifying active image:", error);
                 }
+            } else {
+                console.log("No active image found or the active element is not an image.");
             }
         }
 
@@ -71,13 +78,14 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         
         // Call both functions to modify posts and images
         modifyLinkedInPosts();
-        await classifyAndModifyImages();
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for 2 seconds
+        await classifyAndModifyActiveImage();
 
         // MutationObserver setup remains unchanged
         let observer = new MutationObserver((mutationsList, observer) => {
             console.log("Detected changes in the page, checking for new posts and images to modify...");
             modifyLinkedInPosts();
-            classifyAndModifyImages(); // Note: This is an async function without await here
+            classifyAndModifyActiveImage(); // Note: This is an async function without await here
         });
         observer.observe(document.body, {childList: true, subtree: true});
         console.log("MutationObserver set up to monitor page for changes.");
