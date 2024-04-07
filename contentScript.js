@@ -67,7 +67,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             textViewElements.forEach(textViewElement => {
                 const postText = textViewElement.innerText.toLowerCase();
                 // Check if post contains any of the keywords
-                if (postText.includes("humble") || postText.includes("humbled") || postText.includes("proud") || postText.includes("blessed") || postText.includes("grateful") || postText.includes("excited")) {
+                const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
+                if (filterWords.some(word => postText.includes(word))) {
                     textViewElement.style.color = "#ebe7e7";
                     textViewElement.querySelectorAll('a').forEach(link => {
                         link.style.color = "lightgrey";
