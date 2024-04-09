@@ -71,7 +71,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                                 overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
                                 overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
                                 overlay.style.objectFit = "cover";
-                                overlay.style.opacity = "0.55";
+                                overlay.style.opacity = "0.69";
                                 overlay.style.zIndex = "1000";
                                 img.parentNode.style.position = "relative";
                                 img.style.objectFit = "cover";

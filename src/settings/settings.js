@@ -50,5 +50,6 @@ document.addEventListener('DOMContentLoaded', function() {
             toggleText.textContent = "Show";
         }
     }
-    document.querySelector('.toggle-api-key').addEventListener('click', toggleApiKeyVisibility);
+    var toggleButton = document.querySelector('.toggle-api-key');
+    toggleButton.addEventListener('click', toggleApiKeyVisibility);
 });
