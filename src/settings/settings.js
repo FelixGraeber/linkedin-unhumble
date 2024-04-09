@@ -37,4 +37,18 @@ document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('apiKey').style.display = "block"; // Keep API Key input visible after saving
         });
     });
+
+    // Added functionality from settings.html
+    function toggleApiKeyVisibility() {
+        var apiKeyInput = document.getElementById('apiKey');
+        var toggleText = document.querySelector('.toggle-api-key');
+        if (apiKeyInput.type === "password") {
+            apiKeyInput.type = "text";
+            toggleText.textContent = "Hide";
+        } else {
+            apiKeyInput.type = "password";
+            toggleText.textContent = "Show";
+        }
+    }
+    document.querySelector('.toggle-api-key').addEventListener('click', toggleApiKeyVisibility);
 });

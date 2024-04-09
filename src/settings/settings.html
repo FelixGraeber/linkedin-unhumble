@@ -34,13 +34,23 @@
             color: #666;
             font-size: 12pt; /* Increased from default to 12pt */
         }
-        input[type="text"], select {
+        .api-key-container {
+            position: relative;
+        }
+        input[type="text"], input[type="password"], select {
             width: calc(100% - 22px);
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 12pt; /* Increased from default to 12pt */
+        }
+        .toggle-api-key {
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            cursor: pointer;
+            color: darkgrey;
         }
         .image-preview {
             display: flex;
@@ -54,7 +64,7 @@
             font-size: 12pt; /* Increased from default to 12pt */
         }
         .image-preview div.highlight {
-            border-color: #A1EEBD; /* Highlight color */
+            border-color: #FEABB0; /* Highlight color */
             font-size: 12pt; /* Increased from default to 12pt */
         }
         .image-preview img {
@@ -66,7 +76,7 @@
         button {
             width: 100%;
             padding: 10px;
-            background-color: #EF476F;
+            background-color: #FEABB0;
             color: black;
             border: none;
             border-radius: 4px;
@@ -74,7 +84,7 @@
             font-size: 14pt; /* Increased from default to 14pt */
         }
         button:hover {
-            background-color: #beedcf;
+            background-color: #fdc7ca;
             font-size: 14pt; /* Ensuring hover state doesn't change font size */
         }
         @media (max-width: 600px) {
@@ -90,7 +100,10 @@
     <br></br>
     <form id="settingsForm">
         <label for="apiKey">API Key:</label>
-        <input type="text" id="apiKey" name="apiKey" placeholder="Enter your API Key">
+        <div class="api-key-container">
+            <input type="password" id="apiKey" name="apiKey" placeholder="Enter your API Key">
+            <span class="toggle-api-key" onclick="toggleApiKeyVisibility()">Show</span>
+        </div>
         <label for="filterWords">Filter Words:</label>
         <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words" value="humble, proud, blessed">
         <label for="overlayImage">Overlay Image:</label>
