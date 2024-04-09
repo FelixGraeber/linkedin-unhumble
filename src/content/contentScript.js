@@ -38,8 +38,16 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
                     if (classification === "single_person") {
                         let overlay = document.createElement('img');
-                        overlay.src = "https://media.istockphoto.com/id/546462560/vector/happy-pig.jpg?s=612x612&w=0&k=20&c=zS746w4A9BcFHZPJiW2V0AYfl4UMOlOnoZGXstQ6YL8=";
-                        overlay.style.position = "absolute";
+                        chrome.storage.sync.get('selectedImage', function(data) {
+                            const selectedImageId = data.selectedImage; // Get selected image ID from storage
+                            const selectedImageUrl = {
+                                pig: "./assets/pig.webp",
+                                clown: "./assets/clown.webp",
+                                puppy: "./assets/puppy.webp"
+                            }[selectedImageId]; // Map selected image ID to its URL
+                            overlay.src = selectedImageUrl;
+                            overlay.style.position = "absolute";
+                        });
                         overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
                         overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
                         overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent

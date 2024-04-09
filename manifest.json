@@ -6,31 +6,28 @@
   "permissions": [
     "webNavigation", "scripting", "storage", "tabs"
   ],
-  "options_page": "settings.html",
+  "options_page": "./src/settings/settings.html",
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "./src/background/background.js",
+    "scripts": ["./src/background/background.js"]
   },
   "content_scripts": [
     {
       "matches": ["*://www.linkedin.com/*"],
       "all_frames": true,
-      "js": ["contentScript.js"]
+      "js": ["./src/content/contentScript.js"]
     }
   ],
   "icons": {
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
+    "48": "./assets/icons/icon48.png",
+    "128": "./assets/icons/icon128.png"
   },
   "action": {
-    "default_icon": "icons/icon48.png",
-    "default_popup": "popup.html",
+    "default_icon": "./assets/icons/icon48.png",
+    "default_popup": "./src/popup/popup.html",
     "default_title": "LinkedIn Unhumble"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
-  },
-  "background": {
-    "service_worker": "background.js",
-    "scripts": ["background.js"]
   }
 }
