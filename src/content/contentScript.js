@@ -49,24 +49,34 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                             let overlay = document.createElement('img');
                             chrome.storage.sync.get('selectedImage', function (data) {
                                 const selectedImageId = data.selectedImage; // Get selected image ID from storage
-                                const selectedImageUrl = {
-                                    pig: "./assets/pig.webp",
-                                    clown: "./assets/clown.webp",
-                                    puppy: "./assets/puppy.webp"
-                                }[selectedImageId]; // Map selected image ID to its URL
+                                let selectedImageUrl;
+                                switch (selectedImageId) {
+                                    case 'pig':
+                                        selectedImageUrl = chrome.runtime.getURL("assets/pig.webp");
+                                        break;
+                                    case 'clown':
+                                        selectedImageUrl = chrome.runtime.getURL("assets/clown.webp");
+                                        break;
+                                    case 'puppy':
+                                        selectedImageUrl = chrome.runtime.getURL("assets/puppy.webp");
+                                        break;
+                                    default:
+                                        selectedImageUrl = ''; // Default case if no matching ID is found
+                                }
+                                console.log("Overlay image selected:", selectedImageUrl);
                                 overlay.src = selectedImageUrl;
                                 overlay.style.position = "absolute";
+                                overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
+                                overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
+                                overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
+                                overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
+                                overlay.style.objectFit = "cover";
+                                overlay.style.opacity = "0.69";
+                                overlay.style.zIndex = "1000";
+                                img.parentNode.style.position = "relative";
+                                img.style.objectFit = "cover";
+                                img.parentNode.insertBefore(overlay, img.nextSibling);
                             });
-                            overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
-                            overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
-                            overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
-                            overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
-                            overlay.style.objectFit = "cover";
-                            overlay.style.opacity = "0.69";
-                            overlay.style.zIndex = "1000";
-                            img.parentNode.style.position = "relative";
-                            img.style.objectFit = "cover";
-                            img.parentNode.insertBefore(overlay, img.nextSibling);
                         }
                     } else {
                         console.error("No choices available in the response:", JSON.stringify(response, null, 2));
@@ -79,8 +89,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
         // Existing function to modify LinkedIn posts based on text content
         function modifyLinkedInPosts() {
-            console.log("Scanning LinkedIn feed for new posts to modify...");
-
             let modifiedPostsCount = 0; // Keep track of how many posts were modified
             const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
             textViewElements.forEach(textViewElement => {
