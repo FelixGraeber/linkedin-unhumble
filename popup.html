@@ -34,14 +34,6 @@
         <button id="settingsButton">Settings</button>
     </div>
     <button id="apiKeyButton">Add/edit API key</button>
-    <script>
-        document.getElementById('settingsButton').addEventListener('click', function() {
-            window.open(chrome.runtime.getURL('settings.html'));
-        });
-
-        document.getElementById('apiKeyButton').addEventListener('click', function() {
-            window.open(chrome.runtime.getURL('settings.html'));
-        });
-    </script>
+    <script src="popup.js"></script>
 </body>
 </html>
