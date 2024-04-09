@@ -93,7 +93,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         link.style.color = "lightgrey";
                     });
                     modifiedPostsCount++;
-                    console.log("Found something!");
                 }
             });
 
