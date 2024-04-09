@@ -18,6 +18,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    document.querySelectorAll('.image-preview div').forEach(div => {
+        div.addEventListener('click', function() {
+            document.querySelectorAll('.image-preview div').forEach(innerDiv => {
+                innerDiv.classList.remove('highlight');
+            });
+            div.classList.add('highlight');
+        });
+    });
+
     document.getElementById('settingsForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const apiKey = document.getElementById('apiKey').value;
