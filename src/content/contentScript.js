@@ -34,30 +34,34 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         body: JSON.stringify(requestBody)
                     }).then(res => res.json());
                     console.log("Response from OpenAI API:", JSON.stringify(response, null, 2));
-                    const classification = response.choices[0].message.content;
+                    if (response.choices && response.choices.length > 0) {
+                        const classification = response.choices[0].message.content;
 
-                    if (classification === "single_person") {
-                        let overlay = document.createElement('img');
-                        chrome.storage.sync.get('selectedImage', function(data) {
-                            const selectedImageId = data.selectedImage; // Get selected image ID from storage
-                            const selectedImageUrl = {
-                                pig: "./assets/pig.webp",
-                                clown: "./assets/clown.webp",
-                                puppy: "./assets/puppy.webp"
-                            }[selectedImageId]; // Map selected image ID to its URL
-                            overlay.src = selectedImageUrl;
-                            overlay.style.position = "absolute";
-                        });
-                        overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
-                        overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
-                        overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
-                        overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
-                        overlay.style.objectFit = "cover";
-                        overlay.style.opacity = "0.69";
-                        overlay.style.zIndex = "1000";
-                        img.parentNode.style.position = "relative";
-                        img.style.objectFit = "cover";
-                        img.parentNode.insertBefore(overlay, img.nextSibling);
+                        if (classification === "single_person") {
+                            let overlay = document.createElement('img');
+                            chrome.storage.sync.get('selectedImage', function(data) {
+                                const selectedImageId = data.selectedImage; // Get selected image ID from storage
+                                const selectedImageUrl = {
+                                    pig: "./assets/pig.webp",
+                                    clown: "./assets/clown.webp",
+                                    puppy: "./assets/puppy.webp"
+                                }[selectedImageId]; // Map selected image ID to its URL
+                                overlay.src = selectedImageUrl;
+                                overlay.style.position = "absolute";
+                            });
+                            overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
+                            overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
+                            overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
+                            overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
+                            overlay.style.objectFit = "cover";
+                            overlay.style.opacity = "0.69";
+                            overlay.style.zIndex = "1000";
+                            img.parentNode.style.position = "relative";
+                            img.style.objectFit = "cover";
+                            img.parentNode.insertBefore(overlay, img.nextSibling);
+                        }
+                    } else {
+                        console.error("No choices available in the response:", JSON.stringify(response, null, 2));
                     }
                 } catch (error) {
                     console.error("Error classifying image:", error);
