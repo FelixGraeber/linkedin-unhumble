@@ -4,11 +4,19 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     chrome.storage.sync.get('apiKey', async function (data) {
         const apiKey = data.apiKey; // Get API key from storage
 
+        const processedImages = new Set(); // Initialize a set to keep track of processed images
+
         async function classifyAndModifyImages() {
             const imageElements = document.querySelectorAll('img.update-components-image__image');
             for (let img of imageElements) {
+                if (processedImages.has(img.src)) {
+                    console.log(`Image already processed: ${img.src}`);
+                    continue; // Skip this image if it has already been processed
+                }
                 console.log(`Processing image: ${img.src}`);
                 const imageUrl = img.src;
+                processedImages.add(imageUrl); // Add the image URL to the set of processed images
+
                 const requestBody = {
                     model: "gpt-4-vision-preview",
                     messages: [
@@ -75,7 +83,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
             let modifiedPostsCount = 0; // Keep track of how many posts were modified
             const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
-            console.log(`SELECTED: ${textViewElements} `)
             textViewElements.forEach(textViewElement => {
                 const postText = textViewElement.innerText.toLowerCase();
                 // Check if post contains any of the keywords
@@ -92,9 +99,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
             if (modifiedPostsCount > 0) {
                 console.log(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`);
-            } else {
-                console.log("No new posts matched the criteria for modification.");
-            }
+            } 
         }
 
         // Call both functions to modify posts and images
@@ -104,12 +109,10 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
         // MutationObserver setup remains unchanged
         let observer = new MutationObserver((mutationsList, observer) => {
-            console.log("Detected changes in the page, checking for new posts and images to modify...");
             modifyLinkedInPosts();
             classifyAndModifyImages(); // Note: This is an async function without await here
             modifyLinkedInPosts();
         });
         observer.observe(document.body, { childList: true, subtree: true });
-        console.log("MutationObserver set up to monitor page for changes.");
     });
 })();
