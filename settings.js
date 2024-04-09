@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    chrome.storage.sync.get(['apiKey', 'filterWords'], function(data) {
+    chrome.storage.sync.get(['apiKey', 'filterWords', 'selectedImage'], function(data) {
         if(data.apiKey) {
             document.getElementById('apiKey').value = data.apiKey;
             document.getElementById('apiKey').style.display = "block"; // Ensure API Key input is always visible
@@ -7,13 +7,23 @@ document.addEventListener('DOMContentLoaded', function() {
         if(data.filterWords) {
             document.getElementById('filterWords').value = data.filterWords;
         }
+        if(data.selectedImage) {
+            document.querySelectorAll('.image-preview div').forEach(div => {
+                if(div.id === data.selectedImage) {
+                    div.classList.add('highlight');
+                } else {
+                    div.classList.remove('highlight');
+                }
+            });
+        }
     });
 
     document.getElementById('settingsForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const apiKey = document.getElementById('apiKey').value;
         const filterWords = document.getElementById('filterWords').value;
-        chrome.storage.sync.set({apiKey: apiKey, filterWords: filterWords}, function() {
+        const selectedImage = document.querySelector('.image-preview div.highlight').id;
+        chrome.storage.sync.set({apiKey: apiKey, filterWords: filterWords, selectedImage: selectedImage}, function() {
             alert('Settings saved');
             document.getElementById('apiKey').style.display = "block"; // Keep API Key input visible after saving
         });
