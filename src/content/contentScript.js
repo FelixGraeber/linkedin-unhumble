@@ -71,7 +71,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                                 overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
                                 overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
                                 overlay.style.objectFit = "cover";
-                                overlay.style.opacity = "0.69";
+                                chrome.storage.sync.get('overlayOpacity', function(data) {
+                                    overlay.style.opacity = data.overlayOpacity / 100;
+                                });
                                 overlay.style.zIndex = "1000";
                                 img.parentNode.style.position = "relative";
                                 img.style.objectFit = "cover";
@@ -96,8 +98,27 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 // Check if post contains any of the keywords
                 const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
                 if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                    textViewElement.innerText = "😌😌😌😌😌😌😌😌😌😌😌😌\n" + textViewElement.innerText; // Add emojis before the text with a new line
-                    textViewElement.style.color = "#ebe7e7";
+                    chrome.storage.sync.get('filterWordsPrefix', function(data) {
+                        let prefix;
+                        switch (data.filterWordsPrefix) {
+                            case 'none':
+                                prefix = '';
+                                break;
+                            case 'humbled':
+                                prefix = '😌';
+                                break;
+                            case 'clown':
+                                prefix = '🤡';
+                                break;
+                            case 'poop':
+                                prefix = '💩';
+                                break;
+                            default:
+                                prefix = '';
+                        }
+                        textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
+                        textViewElement.style.color = "#ebe7e7";
+                    });
                     textViewElement.classList.add('modified'); // Mark the element as modified
                     textViewElement.querySelectorAll('a').forEach(link => {
                         link.style.color = "lightgrey";

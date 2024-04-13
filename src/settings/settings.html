@@ -34,16 +34,34 @@
             color: #666;
             font-size: 12pt; /* Increased from default to 12pt */
         }
-        .api-key-container, .overlay-opacity-container {
+        .api-key-container, .overlay-opacity-container, .prefix-button-container {
             position: relative;
         }
-        input[type="text"], input[type="password"], select, input[type="range"] {
+        input[type="text"], input[type="password"], input[type="range"] {
             width: calc(100% - 22px);
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 4px;
             font-size: 12pt; /* Increased from default to 12pt */
+        }
+        .prefix-button-container {
+            display: flex; /* Align buttons horizontally */
+            justify-content: start; /* Align buttons to the start of the container */
+            gap: 10px; /* Add some space between buttons */
+        }
+        .prefix-button {
+            font-size: 12pt; /* Ensure button matches input font size */
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* Added emoji support */
+        }
+        .prefix-button.selected {
+            background-color: #FEABB0; /* Highlight selected button */
+            color: white;
         }
         .toggle-api-key {
             position: absolute;
@@ -85,7 +103,6 @@
         }
         button:hover {
             background-color: #fdc7ca;
-            font-size: 14pt; /* Ensuring hover state doesn't change font size */
         }
         @media (max-width: 600px) {
             form {
@@ -142,13 +159,20 @@
     <h1>Settings</h1>
     <br></br>
     <form id="settingsForm">
-        <label for="apiKey">API Key:</label>
-        <div class="api-key-container">
-            <input type="password" id="apiKey" name="apiKey" placeholder="Enter your API Key">
-            <span class="toggle-api-key">Show</span>
-        </div>
+        <h2>Hide Humbled Text</h2>
+        <p>Specify words that, when detected in posts, will be hidden or replaced with emojis.</p>
         <label for="filterWords">Filter Words:</label>
         <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words" value="humble, proud, blessed">
+        <label for="filterWordsPrefix">Filter Words - Prefix:</label>
+        <div class="prefix-button-container">
+            <button type="button" class="prefix-button" data-value="none">None</button>
+            <button type="button" class="prefix-button" data-value="humbled">&#x1F60C;</button>
+            <button type="button" class="prefix-button selected" data-value="clown">&#x1F921;</button>
+            <button type="button" class="prefix-button" data-value="poop">&#x1F4A9;</button>
+        </div>
+        <hr style="margin-top: 20px; margin-bottom: 20px;">
+        <h2>Overlay Cringe Images</h2>
+        <p>Choose an image to overlay on detected 'cringe' selfies, adjusting its opacity as needed.</p>
         <label for="overlayImage">Overlay Image:</label>
         <div class="image-preview">
             <div id="pig" class="highlight"><img src="../../assets/pig.webp" alt="Pig"></div>
@@ -161,6 +185,12 @@
                 <input type="range" id="overlayOpacity" name="overlayOpacity" min="0" max="100">
                 <span id="opacityValue">69%</span>
             </div>
+        </div>
+        <label for="apiKey">API Key:</label>
+        <p class="api-key-explanation">Your API Key is required to authenticate requests for image and text processing services. It is securely stored and not shared.</p>
+        <div class="api-key-container">
+            <input type="password" id="apiKey" name="apiKey" placeholder="Enter your API Key">
+            <span class="toggle-api-key">Show</span>
         </div>
         <button type="submit">Save</button>
     </form>
