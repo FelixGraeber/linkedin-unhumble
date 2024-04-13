@@ -28,6 +28,15 @@
             text-align: center;
             font-size: 18pt; /* Increased from default to 18pt */
         }
+        h2 {
+            color: black; /* Setting title in black */
+            margin-bottom: 5px; /* Tighter spacing */
+        }
+        p {
+            color: grey; /* Description in grey */
+            margin-top: 0;
+            font-size: 10pt; /* Smaller font for descriptions */
+        }
         label {
             display: block;
             margin-bottom: 10px;
@@ -45,23 +54,30 @@
             border-radius: 4px;
             font-size: 12pt; /* Increased from default to 12pt */
         }
+        input[type="text"], input[type="password"] {
+            background-color: rgb(237, 237, 237); /* Light pink background for text inputs */
+            color: black; /* Dark pink text */
+        }
+        input[type="range"], select, button {
+            background-color: lightgrey; /* Light pink for other inputs and buttons */
+        }
         .prefix-button-container {
             display: flex; /* Align buttons horizontally */
             justify-content: start; /* Align buttons to the start of the container */
             gap: 10px; /* Add some space between buttons */
         }
-        .prefix-button {
+        .prefix-button, .prefix-button.selected {
             font-size: 12pt; /* Ensure button matches input font size */
             padding: 10px;
             border: 1px solid #ddd;
             border-radius: 4px;
             cursor: pointer;
-            background-color: #f0f0f0;
-            font-family: Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* Added emoji support */
+            background-color: rgb(237, 237, 237); /* Light pink background for text inputs */
+            color: darkgrey; /* Dark pink text */
         }
         .prefix-button.selected {
-            background-color: #FEABB0; /* Highlight selected button */
-            color: white;
+            background-color: #FFC0CB; /* Dark pink background for selected */
+            color: black;
         }
         .toggle-api-key {
             position: absolute;
@@ -78,11 +94,10 @@
         }
         .image-preview div {
             padding: 10px;
-            border: 2px solid transparent; /* Default no highlight */
             font-size: 12pt; /* Increased from default to 12pt */
         }
         .image-preview div.highlight {
-            border-color: #FEABB0; /* Highlight color */
+            border: 5px solid #FFC0CB; /* Light pink border */
             font-size: 12pt; /* Increased from default to 12pt */
         }
         .image-preview img {
@@ -123,7 +138,7 @@
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background: #fff;
+            background: #FFC0CB; /* Dark pink slider thumb */
             cursor: pointer;
         }
 
@@ -131,7 +146,7 @@
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background: #fff;
+            background: #FFC0CB; /* Dark pink slider thumb */
             cursor: pointer;
         }
 
@@ -160,7 +175,7 @@
     <br></br>
     <form id="settingsForm">
         <h2>Hide Humbled Text</h2>
-        <p>Specify words that, when detected in posts, will be hidden or replaced with emojis.</p>
+        <p>Specify keywords that, when detected in posts, will ensure the post is greyed out and marked with emojis</p>
         <label for="filterWords">Filter Words:</label>
         <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words" value="humble, proud, blessed">
         <label for="filterWordsPrefix">Filter Words - Prefix:</label>
@@ -170,7 +185,9 @@
             <button type="button" class="prefix-button selected" data-value="clown">&#x1F921;</button>
             <button type="button" class="prefix-button" data-value="poop">&#x1F4A9;</button>
         </div>
+        <br></br>
         <hr style="margin-top: 20px; margin-bottom: 20px;">
+        <br></br>
         <h2>Overlay Cringe Images</h2>
         <p>Choose an image to overlay on detected 'cringe' selfies, adjusting its opacity as needed.</p>
         <label for="overlayImage">Overlay Image:</label>
@@ -186,8 +203,8 @@
                 <span id="opacityValue">69%</span>
             </div>
         </div>
-        <label for="apiKey">API Key:</label>
-        <p class="api-key-explanation">Your API Key is required to authenticate requests for image and text processing services. It is securely stored and not shared.</p>
+        <label for="apiKey">OpenAI API Key:</label>
+        <p class="api-key-explanation">Your API Key is required to classify images using the GPT-4-Vision API. It is securely stored and not shared.</p>
         <div class="api-key-container">
             <input type="password" id="apiKey" name="apiKey" placeholder="Enter your API Key">
             <span class="toggle-api-key">Show</span>
