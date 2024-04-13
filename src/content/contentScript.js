@@ -96,6 +96,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 // Check if post contains any of the keywords
                 const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
                 if (filterWords.some(word => postText.includes(word))) {
+                    textViewElement.innerText = "😌😌😌" + textViewElement.innerText; // Add emojis before the text
                     textViewElement.style.color = "#ebe7e7";
                     textViewElement.querySelectorAll('a').forEach(link => {
                         link.style.color = "lightgrey";
