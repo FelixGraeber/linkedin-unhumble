@@ -14,8 +14,33 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     continue; // Skip this image if it has already been processed
                 }
                 console.log(`Processing image: ${img.src}`);
-                const imageUrl = img.src;
-                processedImages.add(imageUrl); // Add the image URL to the set of processed images
+
+                // Create an Image object
+                let image = new Image();
+                image.crossOrigin = "anonymous"; // This tells the browser to request CORS permission
+                image.src = img.src;
+                await image.decode(); // Ensure the image is loaded
+
+                // Calculate new dimensions
+                const maxSide = 250;
+                let width, height;
+                if (image.width > image.height) {
+                    width = maxSide;
+                    height = (image.height / image.width) * maxSide;
+                } else {
+                    height = maxSide;
+                    width = (image.width / image.height) * maxSide;
+                }
+
+                // Create a canvas and draw the image onto it with new dimensions
+                let canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                let ctx = canvas.getContext('2d');
+                ctx.drawImage(image, 0, 0, width, height);
+                let downscaledImageUrl = canvas.toDataURL(); // Convert canvas to data URL
+
+                processedImages.add(img.src); // Add the original image URL to the set of processed images
 
                 const requestBody = {
                     model: "gpt-4-vision-preview",
@@ -24,7 +49,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                             role: "user",
                             content: [
                                 { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER 'CRINGE_SELFIE' OR NOT. RESPOND ONLY WITH 'cringe_selfie' IF ONLY 1 PERSON IS VISIBLE ON THE PHOTO OR ELSE 'other':" },
-                                { type: "image_url", image_url: { "url": imageUrl, "detail": "low" } },
+                                { type: "image_url", image_url: { "url": downscaledImageUrl, "detail": "low" } },
                             ],
                         },
                     ],
