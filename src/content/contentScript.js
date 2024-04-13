@@ -23,7 +23,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         {
                             role: "user",
                             content: [
-                                { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER SINGLE_PERSON OR NOT. RESPOND ONLY WITH 'single_person' IF ONLY 1 PERSON IS VISIBLE ON THE PHOTO OR ELSE 'other':" },
+                                { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER 'CRINGE_SELFIE' OR NOT. RESPOND ONLY WITH 'cringe_selfie' IF ONLY 1 PERSON IS VISIBLE ON THE PHOTO OR ELSE 'other':" },
                                 { type: "image_url", image_url: { "url": imageUrl, "detail": "low" } },
                             ],
                         },
@@ -45,7 +45,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     if (response.choices && response.choices.length > 0) {
                         const classification = response.choices[0].message.content;
 
-                        if (classification === "single_person") {
+                        if (classification === "cringe_selfie") {
                             let overlay = document.createElement('img');
                             chrome.storage.sync.get('selectedImage', function (data) {
                                 const selectedImageId = data.selectedImage; // Get selected image ID from storage
@@ -88,16 +88,17 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         }
 
         // Existing function to modify LinkedIn posts based on text content
-        function modifyLinkedInPosts() {
+        async function modifyLinkedInPosts() {
             let modifiedPostsCount = 0; // Keep track of how many posts were modified
             const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
             textViewElements.forEach(textViewElement => {
                 const postText = textViewElement.innerText.toLowerCase();
                 // Check if post contains any of the keywords
                 const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
-                if (filterWords.some(word => postText.includes(word))) {
-                    textViewElement.innerText = "😌😌😌" + textViewElement.innerText; // Add emojis before the text
+                if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
+                    textViewElement.innerText = "😌😌😌😌😌😌😌😌😌😌😌😌\n" + textViewElement.innerText; // Add emojis before the text with a new line
                     textViewElement.style.color = "#ebe7e7";
+                    textViewElement.classList.add('modified'); // Mark the element as modified
                     textViewElement.querySelectorAll('a').forEach(link => {
                         link.style.color = "lightgrey";
                     });
@@ -111,15 +112,13 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         }
 
         // Call both functions to modify posts and images
-        modifyLinkedInPosts();
+        await modifyLinkedInPosts();
         await classifyAndModifyImages();
-        modifyLinkedInPosts();
 
         // MutationObserver setup remains unchanged
-        let observer = new MutationObserver((mutationsList, observer) => {
-            modifyLinkedInPosts();
-            classifyAndModifyImages(); // Note: This is an async function without await here
-            modifyLinkedInPosts();
+        let observer = new MutationObserver(async (mutationsList, observer) => {
+            await modifyLinkedInPosts();
+            await classifyAndModifyImages(); // Note: This is an async function with await here
         });
         observer.observe(document.body, { childList: true, subtree: true });
     });
