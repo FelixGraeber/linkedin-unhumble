@@ -3,70 +3,62 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 (async function () {
     chrome.storage.sync.get('apiKey', async function (data) {
         const apiKey = data.apiKey; // Get API key from storage
+        console.debug("API Key retrieved:", apiKey); // Debug: Log the retrieved API key
 
         const processedImages = new Set(); // Initialize a set to keep track of processed images
 
         async function classifyAndModifyImages() {
-            const imageElements = document.querySelectorAll('img.update-components-image__image');
-            for (let img of imageElements) {
+            const filteredImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
+                .filter(img => img.clientWidth >= 500 || img.clientHeight >= 500);
+            console.debug("Filtered Images:", filteredImages.length); // Debug: Log the number of filtered images
+
+            filteredImages.forEach(img => console.debug("Image src:", img.src)); // Debug: Log each filtered image source
+            for (let img of filteredImages) {
                 if (processedImages.has(img.src)) {
-                    console.log(`Image already processed: ${img.src}`);
+                    console.debug(`Image already processed: ${img.src}`); // Debug: Log if an image was already processed
                     continue; // Skip this image if it has already been processed
                 }
-                console.log(`Processing image: ${img.src}`);
-
-                // Create an Image object
-                let image = new Image();
-                image.crossOrigin = "anonymous"; // This tells the browser to request CORS permission
-                image.src = img.src;
-                await image.decode(); // Ensure the image is loaded
-
-                // Calculate new dimensions
-                const maxSide = 250;
-                let width, height;
-                if (image.width > image.height) {
-                    width = maxSide;
-                    height = (image.height / image.width) * maxSide;
-                } else {
-                    height = maxSide;
-                    width = (image.width / image.height) * maxSide;
-                }
-
-                // Create a canvas and draw the image onto it with new dimensions
-                let canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                let ctx = canvas.getContext('2d');
-                ctx.drawImage(image, 0, 0, width, height);
-                let downscaledImageUrl = canvas.toDataURL(); // Convert canvas to data URL
+                console.debug(`Processing image: ${img.src}`); // Debug: Log the image being processed
 
                 processedImages.add(img.src); // Add the original image URL to the set of processed images
 
+                // Call the Google Cloud Function to classify the image
                 const requestBody = {
-                    model: "gpt-4-vision-preview",
-                    messages: [
-                        {
-                            role: "user",
-                            content: [
-                                { type: "text", text: "ONLY CLASSIFY THE IMAGE IN EITHER 'CRINGE_SELFIE' OR NOT. RESPOND ONLY WITH 'cringe_selfie' IF ONLY 1 PERSON IS VISIBLE ON THE PHOTO OR ELSE 'other':" },
-                                { type: "image_url", image_url: { "url": downscaledImageUrl, "detail": "low" } },
-                            ],
-                        },
-                    ],
-                    max_tokens: 300
+                    data: {
+                        model: "claude-3-haiku-20240229", // Example model name, adjust as necessary
+                        messages: [
+                            {
+                                role: "user",
+                                content: [
+                                    { 
+                                        type: "image", 
+                                        source: {
+                                            type: "url",
+                                            media_type: "image/jpeg", // Adjust based on your image's MIME type
+                                            url: img.src,
+                                        }
+                                    },
+                                    { 
+                                        type: "text", 
+                                        text: "Classify this image." // Adjust your prompt as necessary
+                                    }
+                                ],
+                            },
+                        ],
+                        max_tokens: 300
+                    }
                 };
 
                 try {
-                    console.log("Sending image for classification with OpenAI API", requestBody);
-                    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    console.debug("Sending image for classification", requestBody); // Debug: Log the request body being sent for classification
+                    const response = await fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', { // Replace with your Cloud Function URL
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${apiKey}`
                         },
                         body: JSON.stringify(requestBody)
                     }).then(res => res.json());
-                    console.log("Response from OpenAI API:", JSON.stringify(response, null, 2));
+                    console.debug("Response:", JSON.stringify(response, null, 2)); // Debug: Log the response from classification
                     if (response.choices && response.choices.length > 0) {
                         const classification = response.choices[0].message.content;
 
@@ -88,7 +80,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                                     default:
                                         selectedImageUrl = ''; // Default case if no matching ID is found
                                 }
-                                console.log("Overlay image selected:", selectedImageUrl);
+                                console.debug("Overlay image selected:", selectedImageUrl); // Debug: Log the selected overlay image URL
                                 overlay.src = selectedImageUrl;
                                 overlay.style.position = "absolute";
                                 overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
@@ -106,10 +98,10 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                             });
                         }
                     } else {
-                        console.error("No choices available in the response:", JSON.stringify(response, null, 2));
+                        console.error("No choices available in the response:", JSON.stringify(response, null, 2)); // Debug: Log if no choices are available
                     }
                 } catch (error) {
-                    console.error("Error classifying image:", error);
+                    console.error("Error classifying image with the Cloud Function:", error); // Debug: Log any errors during classification
                 }
             }
         }
@@ -153,7 +145,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             });
 
             if (modifiedPostsCount > 0) {
-                console.log(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`);
+                console.debug(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`); // Debug: Log the number of modified posts
             } 
         }
 
