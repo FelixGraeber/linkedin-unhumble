@@ -21,23 +21,25 @@ CORS(app)
 
 def prepare_image(image_url):
     """Fetch, resize, convert to JPEG, and base64 encode the image."""
-    image_response = requests.get(image_url)
-    if image_response.status_code == 200:
-        # Load image into PIL
-        image = Image.open(BytesIO(image_response.content))
-        # Resize image, maintaining aspect ratio
-        base_width = 250
-        w_percent = (base_width / float(image.size[0]))
-        h_size = int((float(image.size[1]) * float(w_percent)))
-        image = image.resize((base_width, h_size), Image.Resampling.LANCZOS)
-        # Convert image to JPEG
-        image_converted = BytesIO()
-        image.save(image_converted, format="JPEG")
-        # Encode to base64
-        image_data = base64.b64encode(image_converted.getvalue()).decode("utf-8")
+    try:
         image_media_type = "image/jpeg"
+        # Directly parse the image URL to base64, simulating the fetch and encode process
+        image_data = base64.b64encode(httpx.get(image_url).content).decode("utf-8")
+        # # Assuming the URL directly points to an image, simulate loading it into PIL for processing
+        # image = Image.open(BytesIO(base64.b64decode(image_data)))
+        # # Resize image, maintaining aspect ratio
+        # base_width = 250
+        # w_percent = (base_width / float(image.size[0]))
+        # h_size = int((float(image.size[1]) * float(w_percent)))
+        # image = image.resize((base_width, h_size), Image.Resampling.LANCZOS)
+        # # Convert image to PNG and encode to base64
+        # image_converted = BytesIO()
+        # image.save(image_converted, format="PNG")
+        # image_data_png = base64.b64encode(image_converted.getvalue()).decode("utf-8")
+        # image_media_type = "image/png"
         return image_data, image_media_type
-    else:
+    except Exception as e:
+        app.logger.debug("Failed to prepare image: %s", str(e))
         return None, None
 
 @app.route('/test', methods=['POST'])
@@ -88,14 +90,28 @@ def classify_image():
                                         },
                                         {
                                             "type": "text",
-                                            "text": classification_request
+                                            "text": "describe the image"
                                         }
                                     ],
                                 }
                             ],
                         )
                         app.logger.debug("Response: %s", response)
-                        return jsonify(response), 200
+                        # Convert the Message object to a dictionary
+                        response_dict = {
+                            "id": response.id,
+                            "content": [{"text": block.text, "type": block.type} for block in response.content],
+                            "model": response.model,
+                            "role": response.role,
+                            "stop_reason": response.stop_reason,
+                            "type": response.type,
+                            "usage": {
+                                "input_tokens": response.usage.input_tokens,
+                                "output_tokens": response.usage.output_tokens
+                            }
+                        }
+
+                        return jsonify(response_dict), 200
                     except Exception as e:
                         # This catches exceptions thrown by the anthropic client, which might indicate errors like network issues or invalid parameters.
                         return jsonify({"error": str(e)}), 500
