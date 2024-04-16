@@ -1,13 +1,11 @@
 import os
-import re
-from flask import Flask, jsonify, make_response, request
-from flask_cors import CORS, cross_origin
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+from flask import Flask, jsonify, request
+from flask_cors import CORS
 import anthropic
 import base64
-import httpx
-from cachetools import cached, TTLCache
+import requests
+from PIL import Image
+import io
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -15,58 +13,36 @@ app = Flask(__name__)
 # Apply CORS to all domains on all routes, allowing all headers and methods.
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-# Initialize rate limiter
-limiter = Limiter(
-    app,
-    key_func=get_remote_address,
-    default_limits=["10 per minute"]
-)
 
-def is_valid_url(url):
-    """Validate the URL format."""
-    regex = re.compile(
-        r'^(?:http|ftp)s?://'  # http:// or https://
-        r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|'  # domain...
-        r'localhost|'  # localhost...
-        r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})'  # ...or ip
-        r'(?::\d+)?'  # optional port
-        r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-    return re.match(regex, url) is not None
-
-# Cache for prepared images with a TTL of 5 minutes and a maximum size of 100 entries
-image_cache = TTLCache(maxsize=100, ttl=300)
-
-@cached(image_cache)
-async def prepare_image(image_url):
-    """Fetch, resize, convert to JPEG, and base64 encode the image."""
+def prepare_image(image_url):
+    """Fetch, resize to 250px on the longer side, convert to JPEG, and base64 encode the image."""
     try:
-        if not is_valid_url(image_url):
-            raise ValueError("Invalid URL format")
         image_media_type = "image/jpeg"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(image_url)
-        image_data = base64.b64encode(response.content).decode("utf-8")
+        response = requests.get(image_url)
+        # Open the image using BytesIO
+        image = Image.open(io.BytesIO(response.content))
+        # Calculate new size, keeping the aspect ratio
+        if image.width > image.height:
+            new_height = int((250 / image.width) * image.height)
+            new_size = (250, new_height)
+        else:
+            new_width = int((250 / image.height) * image.width)
+            new_size = (new_width, 250)
+        # Resize the image
+        resized_image = image.resize(new_size, Image.Resampling.LANCZOS)  # Updated to use Image.Resampling.LANCZOS
+        # Convert the image to JPEG
+        with io.BytesIO() as output:
+            resized_image.save(output, format="JPEG")
+            jpeg_data = output.getvalue()
+        # Base64 encode the JPEG image
+        image_data = base64.b64encode(jpeg_data).decode("utf-8")
         return image_data, image_media_type
     except Exception as e:
         print("Failed to prepare image: %s" % str(e))
         return None, None
 
-@app.route('/test', methods=['POST', 'OPTIONS'])
-@cross_origin(origin='*', headers=['Content-Type', 'Authorization'])
-@limiter.limit("5 per minute")
-async def test(request):  # Added request parameter
-    if request.method == 'OPTIONS':
-        # Handle preflight request for CORS
-        print("Handling CORS preflight for /test endpoint.")
-        return make_response(jsonify(success=True), 200)
-
-    # Simple static JSON response
-    print("Received POST request at /test endpoint.")
-    return jsonify({"status": "success", "message": "This is a test response"}), 200
-
 @app.route('/classify_image', methods=['POST'])
-@limiter.limit("20 per minute")
-async def classify_image(request):
+def classify_image(request):
     # Use Flask's global request object directly
     print("Request received: %s" % request.method)
     if request.method == 'POST':
@@ -85,18 +61,14 @@ async def classify_image(request):
                 first_message = messages[0]
                 image_url = first_message.get('content', [])[0].get('source', {}).get('url')
                 classification_request = first_message.get('content', [])[1].get('text')
-                if not is_valid_url(image_url):
-                    return jsonify({"error": "Invalid image URL format"}), 400
-                if not isinstance(classification_request, str):
-                    return jsonify({"error": "Invalid classification request format"}), 400
                 print("Image URL: %s" % image_url)
                 print("Classification Request: %s" % classification_request)
 
-                image_data, image_media_type = await prepare_image(image_url)
+                image_data, image_media_type = prepare_image(image_url)
                 if image_data and image_media_type:
                     client = anthropic.Anthropic(api_key=os.getenv('API_KEY'))
                     try:
-                        response = await client.messages.create(
+                        response = client.messages.create(
                             model=model,
                             max_tokens=1024,
                             messages=[
@@ -147,15 +119,15 @@ async def classify_image(request):
     return jsonify({"error": "Method not allowed"}), 405
 
 @app.errorhandler(Exception)
-async def handle_unexpected_error(error):
+def handle_unexpected_error(error):
     """Global error handler."""
     response = jsonify({'message': 'An unexpected error occurred', 'details': str(error)})
     response.status_code = 500
     return response
 
-async def main(request):
+def main():
     print("Received request at main entry point.")
-    return await app(request)
+    return app
 
 
 if __name__ == '__main__':
