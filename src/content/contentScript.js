@@ -40,7 +40,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                                     },
                                     { 
                                         type: "text", 
-                                        text: "Classify this image." // Adjust your prompt as necessary
+                                        text: "Classify if this image shows only one person ('selfie') or not. ONLY RESPOND WITH 'selfie' OR 'not_selfie'."
                                     }
                                 ],
                             },

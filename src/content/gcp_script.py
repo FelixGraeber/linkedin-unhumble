@@ -41,82 +41,92 @@ def prepare_image(image_url):
         print("Failed to prepare image: %s" % str(e))
         return None, None
 
+def parse_request_data(request):
+    """Parse and validate request data."""
+    data = request.get_json()
+    if not data:
+        return None, "No JSON payload provided"
+    model = data.get('data', {}).get('model', 'claude-3-opus-20240229')
+    messages = data.get('data', {}).get('messages', [])
+    if not messages:
+        return None, "No messages found in payload"
+    return data, None
+
+def process_classification_request(data):
+    """Process the classification request."""
+    model = data.get('data', {}).get('model', 'claude-3-opus-20240229')
+    messages = data.get('data', {}).get('messages', [])
+    first_message = messages[0]
+    image_url = first_message.get('content', [])[0].get('source', {}).get('url')
+    classification_request = first_message.get('content', [])[1].get('text')
+    image_data, image_media_type = prepare_image(image_url)
+    if not image_data or not image_media_type:
+        return None, "Failed to prepare image"
+    return (model, messages, image_data, image_media_type, classification_request), None
+
+def send_classification_request(model, image_data, image_media_type, classification_request):
+    """Send the classification request to the Anthropic API."""
+    client = anthropic.Anthropic(api_key=os.getenv('API_KEY'))
+    try:
+        response = client.messages.create(
+            model=model,
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": image_media_type,
+                                "data": image_data,
+                            },
+                        },
+                        {
+                            "type": "text",
+                            "text": classification_request
+                        }
+                    ],
+                }
+            ],
+        )
+        return response, None
+    except Exception as e:
+        return None, str(e)
+
 @app.route('/classify_image', methods=['POST'])
 def classify_image(request):
-    # Use Flask's global request object directly
     print("Request received: %s" % request.method)
-    if request.method == 'POST':
-        print("Handling POST")
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No JSON payload provided"}), 400
+    if request.method != 'POST':
+        return jsonify({"error": "Method not allowed"}), 405
 
-        try:
-            model = data.get('data', {}).get('model', 'claude-3-opus-20240229')
-            messages = data.get('data', {}).get('messages', [])
-            print("Messages: %s" % messages)
-            print("Model: %s" % model)
+    data, error = parse_request_data(request)
+    if error:
+        return jsonify({"error": error}), 400
 
-            if messages:
-                first_message = messages[0]
-                image_url = first_message.get('content', [])[0].get('source', {}).get('url')
-                classification_request = first_message.get('content', [])[1].get('text')
-                print("Image URL: %s" % image_url)
-                print("Classification Request: %s" % classification_request)
+    classification_data, error = process_classification_request(data)
+    if error:
+        return jsonify({"error": error}), 500
 
-                image_data, image_media_type = prepare_image(image_url)
-                if image_data and image_media_type:
-                    client = anthropic.Anthropic(api_key=os.getenv('API_KEY'))
-                    try:
-                        response = client.messages.create(
-                            model=model,
-                            max_tokens=1024,
-                            messages=[
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        {
-                                            "type": "image",
-                                            "source": {
-                                                "type": "base64",
-                                                "media_type": image_media_type,
-                                                "data": image_data,
-                                            },
-                                        },
-                                        {
-                                            "type": "text",
-                                            "text": classification_request
-                                        }
-                                    ],
-                                }
-                            ],
-                        )
-                        print("Response: %s" % response)
-                        # Convert the Message object to a dictionary
-                        response_dict = {
-                            "id": response.id,
-                            "content": [{"text": block.text, "type": block.type} for block in response.content],
-                            "model": response.model,
-                            "role": response.role,
-                            "stop_reason": response.stop_reason,
-                            "type": response.type,
-                            "usage": {
-                                "input_tokens": response.usage.input_tokens,
-                                "output_tokens": response.usage.output_tokens
-                            }
-                        }
+    model, messages, image_data, image_media_type, classification_request = classification_data
+    response, error = send_classification_request(model, image_data, image_media_type, classification_request)
+    if error:
+        return jsonify({"error": error}), 500
 
-                        return jsonify(response_dict), 200
-                    except Exception as e:
-                        # This catches exceptions thrown by the anthropic client, which might indicate errors like network issues or invalid parameters.
-                        return jsonify({"error": str(e)}), 500
-                else:
-                    return jsonify({"error": "Failed to prepare image"}), 500
-            else:
-                return jsonify({"error": "No messages found in payload"}), 400
-        except Exception as e:
-            return jsonify({"error": str(e)}), 500
-    return jsonify({"error": "Method not allowed"}), 405
+    response_dict = {
+        "id": response.id,
+        "content": [{"text": block.text, "type": block.type} for block in response.content],
+               "model": response.model,
+        "role": response.role,
+        "stop_reason": response.stop_reason,
+        "type": response.type,
+        "usage": {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens
+        }
+    }
+    return jsonify(response_dict), 200
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(error):
