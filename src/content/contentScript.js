@@ -50,16 +50,17 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         return {
             data: {
                 model: "claude-3-haiku-20240307",
+                system: "You are an AI assistant trained to identify purely self-promotional images on LinkedIn. Your goal is to analyze the following image and classify it into 'selfpromotional_image' or 'other'. Selfpromotional images include selfies with just one person, headshots or other shots of just one person, etc. If there are multiple people on the image, it is 'other'.",
                 messages: [
                     {
                         role: "user",
                         content: [
                             { type: "image", source: { type: "url", media_type: "image/jpeg", url: imageSrc } },
-                            { type: "text", text: "Always reply ONLY 'selfie'!!." }
+                            { type: "text", text: "ONLY RESPOND WITH THE CLASSIFICATION 'selfpromotional_image' OR 'other':" }
                         ],
                     },
                 ],
-                max_tokens: 300
+                max_tokens: 320
             }
         };
     }
@@ -83,7 +84,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     }
 
     async function applyImageOverlay(img, classification) {
-        if (classification === "selfie") {
+        if (classification === "selfpromotional_image") {
             console.debug("Applying image overlay for selfie for image: ", img.src);
             let overlay = document.createElement('img');
             const selectedImageUrl = await getSelectedImageUrl();
