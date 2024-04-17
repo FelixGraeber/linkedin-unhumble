@@ -13,11 +13,11 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     }
 
     async function classifyAndModifyImages() {
-        const filteredImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
+        const selectedImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
             .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100);
 
-        console.debug("Filtered Images:", filteredImages.length);
-        for (let img of filteredImages) {
+        console.debug("Filtered Images:", selectedImages.length);
+        for (let img of selectedImages) {
             if (processedImages.has(img.src) || imagesAwaitingClassification.has(img.src)) {
                 // console.debug(`Image already processed or awaiting classification: ${img.src}`);
                 continue;
@@ -73,12 +73,12 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             },
             body: JSON.stringify(requestBody)
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Received response for image classification:", data);
-            return data;
-        })
-        .catch(error => console.error('Error:', error));
+            .then(response => response.json())
+            .then(data => {
+                console.log("Received response for image classification:", data);
+                return data;
+            })
+            .catch(error => console.error('Error:', error));
     }
 
     async function applyImageOverlay(img, classification) {
@@ -108,48 +108,62 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     function setOverlayStyle(overlay, img) {
         overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
-        chrome.storage.sync.get('overlayOpacity', function(data) {
+        chrome.storage.sync.get('overlayOpacity', function (data) {
             overlay.style.opacity = data.overlayOpacity / 100;
         });
         img.parentNode.style.position = "relative";
         img.style.objectFit = "cover";
     }
 
+    // Existing function to modify LinkedIn posts based on text content
     async function modifyLinkedInPosts() {
-        const textViewElements = document.querySelectorAll('span.text-view-model');
-        let modifiedPostsCount = 0;
-
+        let modifiedPostsCount = 0; // Keep track of how many posts were modified
+        const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
         textViewElements.forEach(textViewElement => {
             const postText = textViewElement.innerText.toLowerCase();
-            const filterWords = ["humble", "proud", "blessed"];
+            // Check if post contains any of the keywords
+            const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
             if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
                 chrome.storage.sync.get('filterWordsPrefix', function(data) {
-                    let emoji = '';
+                    let prefix;
                     switch (data.filterWordsPrefix) {
+                        case 'none':
+                            prefix = '';
+                            break;
                         case 'humbled':
-                            emoji = '😌'.repeat(12);
+                            prefix = '😌';
                             break;
                         case 'clown':
-                            emoji = '🤡'.repeat(12);
+                            prefix = '🤡';
                             break;
                         case 'poop':
-                            emoji = '💩'.repeat(12);
+                            prefix = '💩';
                             break;
                         default:
-                            emoji = '';
+                            prefix = '';
                     }
-                    textViewElement.innerText = emoji + "\n" + textViewElement.innerText;
-                    textViewElement.classList.add('modified'); // Ensure this is executed
+                    textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
                     textViewElement.style.color = "#ebe7e7";
-                    textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
-                    modifiedPostsCount++;
                 });
+                textViewElement.classList.add('modified'); // Mark the element as modified
+                textViewElement.querySelectorAll('a').forEach(link => {
+                    link.style.color = "lightgrey";
+                });
+                modifiedPostsCount++;
             }
         });
 
         if (modifiedPostsCount > 0) {
-            console.debug(`${modifiedPostsCount} posts modified due to containing keywords.`);
-        }
+            console.log(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`);
+        } 
+    }
+
+    function getChromeStorage(key) {
+        return new Promise(resolve => {
+            chrome.storage.sync.get(key, function(data) {
+                resolve(data);
+            });
+        });
     }
 
     function setupMutationObserver() {
