@@ -1,163 +1,154 @@
 console.log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
 
-(async function () {
-    chrome.storage.sync.get('apiKey', async function (data) {
-        const apiKey = data.apiKey; // Get API key from storage
-        console.debug("API Key retrieved:", apiKey); // Debug: Log the retrieved API key
+(async function main() {
+    const processedImages = new Set();
+    const imagesAwaitingClassification = new Map(); // Temp store for images awaiting classification
 
-        const processedImages = new Set(); // Initialize a set to keep track of processed images
+    await modifyLinkedInContent();
+    setupMutationObserver();
 
-        async function classifyAndModifyImages() {
-            const filteredImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
-                .filter(img => img.clientWidth >= 500 || img.clientHeight >= 500);
-            console.debug("Filtered Images:", filteredImages.length); // Debug: Log the number of filtered images
-
-            filteredImages.forEach(img => console.debug("Image src:", img.src)); // Debug: Log each filtered image source
-            for (let img of filteredImages) {
-                if (processedImages.has(img.src)) {
-                    console.debug(`Image already processed: ${img.src}`); // Debug: Log if an image was already processed
-                    continue; // Skip this image if it has already been processed
-                }
-                console.debug(`Processing image: ${img.src}`); // Debug: Log the image being processed
-
-                processedImages.add(img.src); // Add the original image URL to the set of processed images
-
-                // Call the Google Cloud Function to classify the image
-                const requestBody = {
-                    data: {
-                        model: "claude-3-haiku-20240229", // Example model name, adjust as necessary
-                        messages: [
-                            {
-                                role: "user",
-                                content: [
-                                    { 
-                                        type: "image", 
-                                        source: {
-                                            type: "url",
-                                            media_type: "image/jpeg", // Adjust based on your image's MIME type
-                                            url: img.src,
-                                        }
-                                    },
-                                    { 
-                                        type: "text", 
-                                        text: "Classify if this image shows only one person ('selfie') or not. ONLY RESPOND WITH 'selfie' OR 'not_selfie'."
-                                    }
-                                ],
-                            },
-                        ],
-                        max_tokens: 300
-                    }
-                };
-
-                try {
-                    console.debug("Sending image for classification", requestBody); // Debug: Log the request body being sent for classification
-                    const response = await fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', { // Replace with your Cloud Function URL
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(requestBody)
-                    }).then(res => res.json());
-                    console.debug("Response:", JSON.stringify(response, null, 2)); // Debug: Log the response from classification
-                    if (response.choices && response.choices.length > 0) {
-                        const classification = response.choices[0].message.content;
-
-                        if (classification === "cringe_selfie") {
-                            let overlay = document.createElement('img');
-                            chrome.storage.sync.get('selectedImage', function (data) {
-                                const selectedImageId = data.selectedImage; // Get selected image ID from storage
-                                let selectedImageUrl;
-                                switch (selectedImageId) {
-                                    case 'pig':
-                                        selectedImageUrl = chrome.runtime.getURL("assets/pig.webp");
-                                        break;
-                                    case 'clown':
-                                        selectedImageUrl = chrome.runtime.getURL("assets/clown.webp");
-                                        break;
-                                    case 'puppy':
-                                        selectedImageUrl = chrome.runtime.getURL("assets/puppy.webp");
-                                        break;
-                                    default:
-                                        selectedImageUrl = ''; // Default case if no matching ID is found
-                                }
-                                console.debug("Overlay image selected:", selectedImageUrl); // Debug: Log the selected overlay image URL
-                                overlay.src = selectedImageUrl;
-                                overlay.style.position = "absolute";
-                                overlay.style.width = img.offsetWidth + "px"; // Set the overlay width to match the original image
-                                overlay.style.height = img.offsetHeight + "px"; // Set the overlay height to match the original image
-                                overlay.style.left = "0"; // Align the overlay to the top-left corner of the parent
-                                overlay.style.top = "0"; // Align the overlay to the top-left corner of the parent
-                                overlay.style.objectFit = "cover";
-                                chrome.storage.sync.get('overlayOpacity', function(data) {
-                                    overlay.style.opacity = data.overlayOpacity / 100;
-                                });
-                                overlay.style.zIndex = "1000";
-                                img.parentNode.style.position = "relative";
-                                img.style.objectFit = "cover";
-                                img.parentNode.insertBefore(overlay, img.nextSibling);
-                            });
-                        }
-                    } else {
-                        console.error("No choices available in the response:", JSON.stringify(response, null, 2)); // Debug: Log if no choices are available
-                    }
-                } catch (error) {
-                    console.error("Error classifying image with the Cloud Function:", error); // Debug: Log any errors during classification
-                }
-            }
-        }
-
-        // Existing function to modify LinkedIn posts based on text content
-        async function modifyLinkedInPosts() {
-            let modifiedPostsCount = 0; // Keep track of how many posts were modified
-            const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
-            textViewElements.forEach(textViewElement => {
-                const postText = textViewElement.innerText.toLowerCase();
-                // Check if post contains any of the keywords
-                const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
-                if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                    chrome.storage.sync.get('filterWordsPrefix', function(data) {
-                        let prefix;
-                        switch (data.filterWordsPrefix) {
-                            case 'none':
-                                prefix = '';
-                                break;
-                            case 'humbled':
-                                prefix = '😌';
-                                break;
-                            case 'clown':
-                                prefix = '🤡';
-                                break;
-                            case 'poop':
-                                prefix = '💩';
-                                break;
-                            default:
-                                prefix = '';
-                        }
-                        textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
-                        textViewElement.style.color = "#ebe7e7";
-                    });
-                    textViewElement.classList.add('modified'); // Mark the element as modified
-                    textViewElement.querySelectorAll('a').forEach(link => {
-                        link.style.color = "lightgrey";
-                    });
-                    modifiedPostsCount++;
-                }
-            });
-
-            if (modifiedPostsCount > 0) {
-                console.debug(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`); // Debug: Log the number of modified posts
-            } 
-        }
-
-        // Call both functions to modify posts and images
+    async function modifyLinkedInContent() {
         await modifyLinkedInPosts();
         await classifyAndModifyImages();
+    }
 
-        // MutationObserver setup remains unchanged
-        let observer = new MutationObserver(async (mutationsList, observer) => {
-            await modifyLinkedInPosts();
-            await classifyAndModifyImages(); // Note: This is an async function with await here
+    async function classifyAndModifyImages() {
+        const filteredImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
+            .filter(img => img.clientWidth >= 500 || img.clientHeight >= 500);
+
+        console.debug("Filtered Images:", filteredImages.length);
+        for (let img of filteredImages) {
+            if (processedImages.has(img.src) || imagesAwaitingClassification.has(img.src)) {
+                // console.debug(`Image already processed or awaiting classification: ${img.src}`);
+                continue;
+            }
+            console.debug(`Processing image: ${img.src}`);
+            processedImages.add(img.src);
+
+            const requestBody = createRequestBody(img.src);
+            try {
+                console.debug("Sending image for classification", requestBody);
+                if (!imagesAwaitingClassification.has(img.src)) {
+                    imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
+                        if (response.content && response.content.length > 0) {
+                            const classificationText = response.content.find(content => content.type === "text").text;
+                            return applyImageOverlay(img, classificationText);
+                        }
+                    }).finally(() => {
+                        imagesAwaitingClassification.delete(img.src); // Remove from temp store once processed
+                    }));
+                }
+                await imagesAwaitingClassification.get(img.src); // Wait for the classification to complete
+            } catch (error) {
+                console.error("Error classifying image with the Cloud Function:", error);
+            }
+        }
+    }
+
+    function createRequestBody(imageSrc) {
+        return {
+            data: {
+                model: "claude-3-haiku-20240307",
+                messages: [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "image", source: { type: "url", media_type: "image/jpeg", url: imageSrc } },
+                            { type: "text", text: "Always reply ONLY 'selfie'!!." }
+                        ],
+                    },
+                ],
+                max_tokens: 300
+            }
+        };
+    }
+
+    async function fetchImageClassification(requestBody) {
+        return fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', {
+            method: 'POST',
+            mode: 'cors', // Changed mode to 'cors'
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Received response for image classification:", data);
+            return data;
+        })
+        .catch(error => console.error('Error:', error));
+    }
+
+    async function applyImageOverlay(img, classification) {
+        if (classification === "selfie") {
+            console.debug("Applying image overlay for selfie for image: ", img.src);
+            let overlay = document.createElement('img');
+            const selectedImageUrl = await getSelectedImageUrl();
+            overlay.src = selectedImageUrl;
+            setOverlayStyle(overlay, img);
+            img.parentNode.insertBefore(overlay, img.nextSibling);
+            overlay.addEventListener('click', () => overlay.remove());
+        }
+    }
+
+    async function getSelectedImageUrl() {
+        return new Promise(resolve => {
+            chrome.storage.sync.get('selectedImage', function (data) {
+                const imageUrlMap = {
+                    'pig': chrome.runtime.getURL("assets/pig.webp"),
+                    'clown': chrome.runtime.getURL("assets/clown.webp"),
+                    'puppy': chrome.runtime.getURL("assets/puppy.webp")
+                };
+                resolve(imageUrlMap[data.selectedImage || '']);
+            });
+        });
+    }
+
+    function setOverlayStyle(overlay, img) {
+        overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
+        chrome.storage.sync.get('overlayOpacity', function(data) {
+            overlay.style.opacity = data.overlayOpacity / 100;
+        });
+        img.parentNode.style.position = "relative";
+        img.style.objectFit = "cover";
+    }
+
+    async function modifyLinkedInPosts() {
+        const textViewElements = document.querySelectorAll('span.text-view-model');
+        let modifiedPostsCount = 0;
+
+        textViewElements.forEach(textViewElement => {
+            const postText = textViewElement.innerText.toLowerCase();
+            const filterWords = ["humble", "proud", "blessed"];
+            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
+                chrome.storage.sync.get('filterWordsPrefix', function(data) {
+                    const prefixMap = {
+                        'none': '',
+                        'humbled': '😌',
+                        'clown': '🤡',
+                        'poop': '💩'
+                    };
+                    // Prepend emojis only once
+                    textViewElement.innerText = prefixMap[data.filterWordsPrefix || ''].repeat(12) + "\n" + textViewElement.innerText;
+                    textViewElement.classList.add('modified'); // Ensure this is executed
+                    textViewElement.style.color = "#ebe7e7";
+                    textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
+                    modifiedPostsCount++;
+                });
+            }
+        });
+
+        if (modifiedPostsCount > 0) {
+            console.debug(`${modifiedPostsCount} posts modified due to containing keywords.`);
+        }
+    }
+
+    function setupMutationObserver() {
+        let observer = new MutationObserver(async () => {
+            await modifyLinkedInContent();
         });
         observer.observe(document.body, { childList: true, subtree: true });
-    });
+    }
 })();
