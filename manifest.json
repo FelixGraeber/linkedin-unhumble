@@ -4,7 +4,10 @@
   "version": "1.3.0",
   "description": "Filter out 'humbled' and 'proud' posts and overlay cringe selfies from LinkedIn.",
   "permissions": [
-    "webNavigation", "scripting", "storage", "*://*.linkedin.com/*"
+    "webNavigation", "scripting", "storage"
+  ],
+  "host_permissions": [
+    "*://*.linkedin.com/*"
   ],
   "options_page": "./src/settings/settings.html",
   "background": {
