@@ -24,6 +24,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             }
             console.debug(`Processing image: ${img.src}`);
             processedImages.add(img.src);
+            console.debug("Processed images:", processedImages);
 
             const requestBody = createRequestBody(img.src);
             try {
