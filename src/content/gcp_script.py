@@ -60,7 +60,7 @@ def prepare_image(image_url):
         print(f"Failed to prepare image from URL {image_url}: {str(e)}")
         return None, None
 
-def parse_request_data(request):
+def parse_request_data():
     """Parse and validate request data."""
     data = request.get_json()
     if not data:
@@ -131,7 +131,7 @@ def send_classification_request(model, image_data, image_media_type, classificat
     return None, "Max attempts reached, failed to send classification request."
 
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
-def classify_image(request): # DO NOT REMOVE REQUEST HERE!!!
+def classify_image():  # Removed the request parameter here
     if request.method == 'OPTIONS':
         return _build_cors_preflight_response()
     elif request.method == 'POST':
@@ -157,7 +157,7 @@ def classify_image(request): # DO NOT REMOVE REQUEST HERE!!!
         response_dict = {
             "id": response.id,
             "content": [{"text": block.text, "type": block.type} for block in response.content],
-                   "model": response.model,
+            "model": response.model,
             "role": response.role,
             "stop_reason": response.stop_reason,
             "type": response.type,

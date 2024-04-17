@@ -14,7 +14,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     async function classifyAndModifyImages() {
         const filteredImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
-            .filter(img => img.clientWidth >= 500 || img.clientHeight >= 500);
+            .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100);
 
         console.debug("Filtered Images:", filteredImages.length);
         for (let img of filteredImages) {
@@ -124,14 +124,21 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             const filterWords = ["humble", "proud", "blessed"];
             if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
                 chrome.storage.sync.get('filterWordsPrefix', function(data) {
-                    const prefixMap = {
-                        'none': '',
-                        'humbled': '😌',
-                        'clown': '🤡',
-                        'poop': '💩'
-                    };
-                    // Prepend emojis only once
-                    textViewElement.innerText = prefixMap[data.filterWordsPrefix || ''].repeat(12) + "\n" + textViewElement.innerText;
+                    let emoji = '';
+                    switch (data.filterWordsPrefix) {
+                        case 'humbled':
+                            emoji = '😌'.repeat(12);
+                            break;
+                        case 'clown':
+                            emoji = '🤡'.repeat(12);
+                            break;
+                        case 'poop':
+                            emoji = '💩'.repeat(12);
+                            break;
+                        default:
+                            emoji = '';
+                    }
+                    textViewElement.innerText = emoji + "\n" + textViewElement.innerText;
                     textViewElement.classList.add('modified'); // Ensure this is executed
                     textViewElement.style.color = "#ebe7e7";
                     textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
