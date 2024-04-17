@@ -1,9 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    chrome.storage.sync.get(['apiKey', 'filterWords', 'selectedImage', 'overlayOpacity', 'filterWordsPrefix'], function(data) {
-        if(data.apiKey) {
-            document.getElementById('apiKey').value = data.apiKey;
-            document.getElementById('apiKey').style.display = "block"; // Ensure API Key input is always visible
-        }
+    chrome.storage.sync.get(['filterWords', 'selectedImage', 'overlayOpacity', 'filterWordsPrefix'], function(data) {
         if(data.filterWords) {
             document.getElementById('filterWords').value = data.filterWords;
         }
@@ -64,31 +60,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('settingsForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        const apiKey = document.getElementById('apiKey').value;
         const filterWords = document.getElementById('filterWords').value;
         const selectedImage = document.querySelector('.image-preview div.highlight').id;
         const overlayOpacity = document.getElementById('overlayOpacity').value;
         const filterWordsPrefix = document.querySelector('.prefix-button.selected').getAttribute('data-value');
-        chrome.storage.sync.set({apiKey: apiKey, filterWords: filterWords, selectedImage: selectedImage, overlayOpacity: overlayOpacity, filterWordsPrefix: filterWordsPrefix}, function() {
+        chrome.storage.sync.set({filterWords: filterWords, selectedImage: selectedImage, overlayOpacity: overlayOpacity, filterWordsPrefix: filterWordsPrefix}, function() {
             alert('Settings saved');
-            document.getElementById('apiKey').style.display = "block"; // Keep API Key input visible after saving
         });
     });
-
-    // Added functionality from settings.html
-    function toggleApiKeyVisibility() {
-        var apiKeyInput = document.getElementById('apiKey');
-        var toggleText = document.querySelector('.toggle-api-key');
-        if (apiKeyInput.type === "password") {
-            apiKeyInput.type = "text";
-            toggleText.textContent = "Hide";
-        } else {
-            apiKeyInput.type = "password";
-            toggleText.textContent = "Show";
-        }
-    }
-    var toggleButton = document.querySelector('.toggle-api-key');
-    toggleButton.addEventListener('click', toggleApiKeyVisibility);
 
     // Retrieve and set the slider value on page load
     const savedValue = localStorage.getItem('overlayOpacity');
