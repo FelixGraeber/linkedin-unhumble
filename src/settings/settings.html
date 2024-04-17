@@ -126,20 +126,18 @@
             }
         }
         input[type="range"] {
-            -webkit-appearance: none;
             width: 100%;
-            background: transparent; /* Remove default background */
             height: 2px;
+            background: #FFC0CB; /* Pink background for slider */
+            cursor: pointer;
         }
 
         input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
             appearance: none;
             width: 15px;
             height: 15px;
             border-radius: 50%;
             background: #FFC0CB; /* Dark pink slider thumb */
-            cursor: pointer;
         }
 
         input[type="range"]::-moz-range-thumb {
@@ -147,26 +145,6 @@
             height: 15px;
             border-radius: 50%;
             background: #FFC0CB; /* Dark pink slider thumb */
-            cursor: pointer;
-        }
-
-        /* For Webkit browsers */
-        input[type="range"]::-webkit-slider-runnable-track {
-            background: linear-gradient(to right, #FEABB0 50%, #ddd 50%);
-        }
-
-        /* For Mozilla browsers */
-        input[type="range"]::-moz-range-track {
-            background: linear-gradient(to right, #FEABB0 50%, #ddd 50%);
-        }
-
-        /* Adjust the percentage to match the thumb's position */
-        input[type="range"]:focus::-webkit-slider-runnable-track {
-            background: linear-gradient(to right, #FEABB0 var(--thumb-percentage), #ddd var(--thumb-percentage));
-        }
-
-        input[type="range"]:focus::-moz-range-track {
-            background: linear-gradient(to right, #FEABB0 var(--thumb-percentage), #ddd var(--thumb-percentage));
         }
     </style>
 </head>
@@ -187,14 +165,13 @@
         </div>
         <br></br>
         <hr style="margin-top: 20px; margin-bottom: 20px;">
-        <br></br>
         <h2>Overlay Cringe Images</h2>
         <p>Choose an image to overlay on detected 'cringe' selfies, adjusting its opacity as needed.</p>
         <label for="overlayImage">Overlay Image:</label>
         <div class="image-preview">
             <div id="pig" class="highlight"><img src="../../assets/pig.webp" alt="Pig"></div>
             <div id="clown"><img src="../../assets/clown.webp" alt="Clown"></div>
-            <div id="puppy"><img src="../../assets/puppy.webp" alt="Puppy"></div>
+            <div id="trump"><img src="../../assets/trump.jpg" alt="Trump"></div>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <label for="overlayOpacity">Overlay Opacity:</label>
