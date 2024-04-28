@@ -50,7 +50,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         return {
             data: {
                 model: "claude-3-haiku-20240307",
-                system: "You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (multiple people, not self-promotional).",
+                system: "You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (no people, multiple people, not self-promotional).",
                 messages: [
                     {
                         role: "user",
