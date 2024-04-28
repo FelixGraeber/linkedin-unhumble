@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Unhumbled",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Filter out 'humbled' and 'proud' posts and overlay cringe selfies from LinkedIn.",
   "permissions": [
     "webNavigation", "scripting", "storage"

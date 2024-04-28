@@ -91,6 +91,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             overlay.src = selectedImageUrl;
             setOverlayStyle(overlay, img);
             img.parentNode.insertBefore(overlay, img.nextSibling);
+            overlay.style.transition = "opacity 2s"; // Set transition for opacity change
+            overlay.style.opacity = 0; // Start with the overlay hidden
+            setTimeout(() => overlay.style.opacity = 1, 0); // Fade in the overlay
             overlay.addEventListener('click', () => overlay.remove());
         }
     }
