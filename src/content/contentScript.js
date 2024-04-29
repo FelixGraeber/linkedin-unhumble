@@ -93,7 +93,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             img.parentNode.insertBefore(overlay, img.nextSibling);
             overlay.style.transition = "opacity 2s"; // Set transition for opacity change
             overlay.style.opacity = 0; // Start with the overlay hidden
-            setTimeout(() => overlay.style.opacity = 1, 0); // Fade in the overlay
+            setTimeout(() => overlay.style.opacity = 1, 2000); // Fade in the overlay over 2 seconds
             overlay.addEventListener('click', () => overlay.remove());
         }
     }
@@ -104,7 +104,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 const imageUrlMap = {
                     'pig': chrome.runtime.getURL("assets/pig.webp"),
                     'clown': chrome.runtime.getURL("assets/clown.webp"),
-                    'puppy': chrome.runtime.getURL("assets/puppy.webp")
+                    'puppy': chrome.runtime.getURL("assets/puppy.webp"),
+                    'trump': chrome.runtime.getURL("assets/trump.jpg")
                 };
                 resolve(imageUrlMap[data.selectedImage || '']);
             });
