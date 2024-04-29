@@ -3,6 +3,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 (async function main() {
     const processedImages = new Set();
     const imagesAwaitingClassification = new Map(); // Temp store for images awaiting classification
+    const processedTextElements = new Set(); // Store for text elements that have been processed
 
     await modifyLinkedInContent();
     setupMutationObserver();
@@ -29,16 +30,14 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             const requestBody = createRequestBody(img.src);
             try {
                 console.debug("Sending image for classification", requestBody);
-                if (!imagesAwaitingClassification.has(img.src)) {
-                    imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
-                        if (response.content && response.content.length > 0) {
-                            const classificationText = response.content.find(content => content.type === "text").text;
-                            return applyImageOverlay(img, classificationText);
-                        }
-                    }).finally(() => {
-                        imagesAwaitingClassification.delete(img.src); // Remove from temp store once processed
-                    }));
-                }
+                imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
+                    if (response.content && response.content.length > 0) {
+                        const classificationText = response.content.find(content => content.type === "text").text;
+                        return applyImageOverlay(img, classificationText);
+                    }
+                }).finally(() => {
+                    imagesAwaitingClassification.delete(img.src); // Remove from temp store once processed
+                }));
                 await imagesAwaitingClassification.get(img.src); // Wait for the classification to complete
             } catch (error) {
                 console.error("Error classifying image with the Cloud Function:", error);
@@ -123,9 +122,11 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     // Existing function to modify LinkedIn posts based on text content
     async function modifyLinkedInPosts() {
-        let modifiedPostsCount = 0; // Keep track of how many posts were modified
         const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
         textViewElements.forEach(textViewElement => {
+            if (processedTextElements.has(textViewElement)) {
+                return; // Skip already processed text elements
+            }
             const postText = textViewElement.innerText.toLowerCase();
             // Check if post contains any of the keywords
             const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
@@ -155,27 +156,21 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 textViewElement.querySelectorAll('a').forEach(link => {
                     link.style.color = "lightgrey";
                 });
-                modifiedPostsCount++;
+                processedTextElements.add(textViewElement); // Add to the set of processed text elements
             }
-        });
-
-        if (modifiedPostsCount > 0) {
-            console.log(`${modifiedPostsCount} posts modified to have a light grey background due to containing keywords.`);
-        } 
-    }
-
-    function getChromeStorage(key) {
-        return new Promise(resolve => {
-            chrome.storage.sync.get(key, function(data) {
-                resolve(data);
-            });
         });
     }
 
     function setupMutationObserver() {
-        let observer = new MutationObserver(async () => {
-            await modifyLinkedInContent();
+        let observer = new MutationObserver(async (mutations) => {
+            for (let mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    await modifyLinkedInContent();
+                    break; // Once the relevant modification is found, no need to check further
+                }
+            }
         });
-        observer.observe(document.body, { childList: true, subtree: true });
+        const targetNode = document.querySelector('#main-feed') || document.body; // Target specific element if possible
+        observer.observe(targetNode, { childList: true, subtree: true });
     }
 })();
