@@ -92,7 +92,10 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             img.parentNode.insertBefore(overlay, img.nextSibling);
             overlay.style.transition = "opacity 2s"; // Set transition for opacity change
             overlay.style.opacity = 0; // Start with the overlay hidden
-            setTimeout(() => overlay.style.opacity = 1, 2000); // Fade in the overlay over 2 seconds
+            chrome.storage.sync.get('overlayOpacity', function (data) {
+                const finalOpacity = data.overlayOpacity / 100;
+                setTimeout(() => overlay.style.opacity = finalOpacity, 2000); // Fade in the overlay over 2 seconds to the final opacity from settings
+            });
             overlay.addEventListener('click', () => overlay.remove());
         }
     }
