@@ -34,8 +34,8 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["assets/*.webp"],
-      "matches": ["<all_urls>"]
+      "resources": ["assets/*.webp", "assets/*.jpg", "assets/*.gif"],
+      "matches": ["https://*.linkedin.com/*"]
     }
   ]
 }

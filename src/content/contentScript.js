@@ -85,8 +85,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     async function applyImageOverlay(img, classification) {
         if (classification === "selfpromotional_image") {
             console.debug("Applying image overlay for selfie for image: ", img.src);
-            let overlay = document.createElement('img');
             const selectedImageUrl = await getSelectedImageUrl();
+            let overlay = document.createElement('img');
             overlay.src = selectedImageUrl;
             setOverlayStyle(overlay, img);
             img.parentNode.insertBefore(overlay, img.nextSibling);
@@ -106,7 +106,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 const imageUrlMap = {
                     'pig': chrome.runtime.getURL("assets/pig.webp"),
                     'clown': chrome.runtime.getURL("assets/clown.webp"),
-                    'puppy': chrome.runtime.getURL("assets/puppy.webp"),
+                    'dog': chrome.runtime.getURL("assets/dog.gif"),
                     'trump': chrome.runtime.getURL("assets/trump.jpg")
                 };
                 resolve(imageUrlMap[data.selectedImage || '']);
