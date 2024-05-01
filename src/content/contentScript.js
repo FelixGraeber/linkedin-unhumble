@@ -2,10 +2,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
 (async function main() {
     const processedImages = new Set();
-    const imagesAwaitingClassification = new Map(); // Temp store for images awaiting classification
-    const processedTextElements = new Set(); // Store for text elements that have been processed
-
-    await modifyLinkedInContent();
+    const imagesAwaitingClassification = new Map();
+    const processedTextElements = new Set();
     setupMutationObserver();
 
     async function modifyLinkedInContent() {
@@ -163,7 +161,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         const textViewElements = document.querySelectorAll('span.text-view-model');
         textViewElements.forEach(textViewElement => {
             if (processedTextElements.has(textViewElement)) return;
-    
+
             const postText = textViewElement.innerText.toLowerCase();
             if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
                 textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
@@ -173,19 +171,17 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 processedTextElements.add(textViewElement);
             }
         });
-    }
-    
+    }    
 
     function setupMutationObserver() {
-        let observer = new MutationObserver(async (mutations) => {
-            for (let mutation of mutations) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    await modifyLinkedInContent();
-                    break; // Once the relevant modification is found, no need to check further
+        let observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0 && !mutation.target.classList.contains('modified')) {
+                    modifyLinkedInContent();
                 }
-            }
+            });
         });
-        const targetNode = document.querySelector('#main-feed') || document.body; // Target specific element if possible
+        const targetNode = document.querySelector('#main-feed') || document.body;
         observer.observe(targetNode, { childList: true, subtree: true });
     }
 })();
