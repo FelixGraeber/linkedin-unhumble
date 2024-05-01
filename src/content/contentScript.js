@@ -123,56 +123,58 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         img.style.objectFit = "cover";
     }
 
-    // Existing function to modify LinkedIn posts based on text content
     async function modifyLinkedInPosts() {
-        const textViewElements = document.querySelectorAll('span.text-view-model'); // Select all spans with class 'text-view-model'
-        textViewElements.forEach(textViewElement => {
-            if (processedTextElements.has(textViewElement)) {
-                return; // Skip already processed text elements
-            }
-            const postText = textViewElement.innerText.toLowerCase();
-            // Check if post contains any of the keywords
-            const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
-            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                chrome.storage.sync.get('filterWordsPrefix', function(data) {
-                    let prefix;
-                    switch (data.filterWordsPrefix) {
-                        case 'none':
-                            prefix = '';
-                            break;
-                        case 'humbled':
-                            prefix = '😌';
-                            break;
-                        case 'clown':
-                            prefix = '🤡';
-                            break;
-                        case 'poop':
-                            prefix = '💩';
-                            break;
-                        default:
-                            prefix = '';
+        // Helper function to load storage data
+        async function loadStorageData(key) {
+            return new Promise((resolve, reject) => {
+                chrome.storage.sync.get(key, function(data) {
+                    if (chrome.runtime.lastError) {
+                        reject(chrome.runtime.lastError);
+                    } else {
+                        let result = data[key];
+                        if (typeof result === 'string') {
+                            result = result.split(',').map(item => item.trim());
+                        }
+                        resolve(result);
                     }
-                    textViewElements.forEach(textViewElement => {
-                        if (processedTextElements.has(textViewElement)) {
-                            return; // Skip already processed text elements
-                        }
-                        const postText = textViewElement.innerText.toLowerCase();
-                        // Check if post contains any of the keywords
-                        const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
-                        if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                            textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
-                            textViewElement.style.color = "#ebe7e7";
-                            textViewElement.classList.add('modified'); // Mark the element as modified
-                            textViewElement.querySelectorAll('a').forEach(link => {
-                                link.style.color = "lightgrey";
-                            });
-                            processedTextElements.add(textViewElement); // Add to the set of processed text elements
-                        }
-                    });
                 });
+            });
+        }
+    
+        const filterWords = await loadStorageData('filterWords');
+        const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
+        console.log(typeof filterWords); // Check the data type
+        console.log(filterWords); // Log the actual content
+        console.log('prefix: ', filterWordsPrefix)
+
+    
+        let prefix = '';
+        const actualPrefix = filterWordsPrefix[0]; // Assuming it's always an array with at least one element
+
+        switch (actualPrefix) {
+            case 'humbled': prefix = '😌'; break;
+            case 'clown': prefix = '🤡'; break;
+            case 'poop': prefix = '💩'; break;
+        }
+    
+        console.log('Filter words:', filterWords); // Debug log
+        console.log('Prefix:', prefix); // Debug log
+    
+        const textViewElements = document.querySelectorAll('span.text-view-model');
+        textViewElements.forEach(textViewElement => {
+            if (processedTextElements.has(textViewElement)) return;
+    
+            const postText = textViewElement.innerText.toLowerCase();
+            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
+                textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
+                textViewElement.style.color = "#ebe7e7";
+                textViewElement.classList.add('modified');
+                textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
+                processedTextElements.add(textViewElement);
             }
         });
     }
+    
 
     function setupMutationObserver() {
         let observer = new MutationObserver(async (mutations) => {
