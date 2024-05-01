@@ -31,7 +31,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             try {
                 console.debug("Sending image for classification", requestBody);
                 imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
-                    if (response.content && response.content.length > 0) {
+                    if (response.content && response.content && response.content.length > 0) {
                         const classificationText = response.content.find(content => content.type === "text").text;
                         return applyImageOverlay(img, classificationText);
                     }
@@ -152,14 +152,24 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                         default:
                             prefix = '';
                     }
-                    textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
-                    textViewElement.style.color = "#ebe7e7";
+                    textViewElements.forEach(textViewElement => {
+                        if (processedTextElements.has(textViewElement)) {
+                            return; // Skip already processed text elements
+                        }
+                        const postText = textViewElement.innerText.toLowerCase();
+                        // Check if post contains any of the keywords
+                        const filterWords = ["humble", "proud", "blessed"]; // Assuming these are the filterWords from settings.html
+                        if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
+                            textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
+                            textViewElement.style.color = "#ebe7e7";
+                            textViewElement.classList.add('modified'); // Mark the element as modified
+                            textViewElement.querySelectorAll('a').forEach(link => {
+                                link.style.color = "lightgrey";
+                            });
+                            processedTextElements.add(textViewElement); // Add to the set of processed text elements
+                        }
+                    });
                 });
-                textViewElement.classList.add('modified'); // Mark the element as modified
-                textViewElement.querySelectorAll('a').forEach(link => {
-                    link.style.color = "lightgrey";
-                });
-                processedTextElements.add(textViewElement); // Add to the set of processed text elements
             }
         });
     }
