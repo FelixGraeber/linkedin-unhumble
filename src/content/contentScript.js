@@ -6,6 +6,9 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     const processedTextElements = new Set();
     setupMutationObserver();
 
+    const filterWords = await loadStorageData('filterWords');
+    const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
+
     async function modifyLinkedInContent() {
         await modifyLinkedInPosts();
         await classifyAndModifyImages();
@@ -121,30 +124,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         img.style.objectFit = "cover";
     }
 
-    async function modifyLinkedInPosts() {
-        // Helper function to load storage data
-        async function loadStorageData(key) {
-            return new Promise((resolve, reject) => {
-                chrome.storage.sync.get(key, function(data) {
-                    if (chrome.runtime.lastError) {
-                        reject(chrome.runtime.lastError);
-                    } else {
-                        let result = data[key];
-                        if (typeof result === 'string') {
-                            result = result.split(',').map(item => item.trim());
-                        }
-                        resolve(result);
-                    }
-                });
-            });
-        }
-    
-        const filterWords = await loadStorageData('filterWords');
-        const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
-        console.log(typeof filterWords); // Check the data type
-        console.log(filterWords); // Log the actual content
-        console.log('prefix: ', filterWordsPrefix)
-
+    async function modifyLinkedInPosts() {    
     
         let prefix = '';
         const actualPrefix = filterWordsPrefix[0]; // Assuming it's always an array with at least one element
@@ -154,9 +134,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             case 'clown': prefix = '🤡'; break;
             case 'poop': prefix = '💩'; break;
         }
-    
-        console.log('Filter words:', filterWords); // Debug log
-        console.log('Prefix:', prefix); // Debug log
     
         const textViewElements = document.querySelectorAll('span.text-view-model');
         textViewElements.forEach(textViewElement => {
@@ -170,6 +147,22 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
                 processedTextElements.add(textViewElement);
             }
+        });
+    }
+    // Helper function to load storage data
+    async function loadStorageData(key) {
+        return new Promise((resolve, reject) => {
+            chrome.storage.sync.get(key, function(data) {
+                if (chrome.runtime.lastError) {
+                    reject(chrome.runtime.lastError);
+                } else {
+                    let result = data[key];
+                    if (typeof result === 'string') {
+                        result = result.split(',').map(item => item.trim());
+                    }
+                    resolve(result);
+                }
+            });
         });
     }    
 
