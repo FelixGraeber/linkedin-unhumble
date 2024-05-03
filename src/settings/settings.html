@@ -8,11 +8,11 @@
             margin: 0;
             padding: 0;
             display: block; /* Changed from flex to block */
-            background-color: #f0f0f0;
+            background-color: #000;
             font-size: 14pt; /* Increased from default to 14pt */
         }
         form {
-            background: white;
+            background: #000;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -24,24 +24,25 @@
             font-size: 12pt; /* Increased from default to 12pt */
         }
         h1 {
-            color: #333;
+            color: #FEABB0;
             text-align: center;
-            font-size: 18pt; /* Increased from default to 18pt */
+            font-size: 24pt; /* Increased from default to 18pt */
         }
         h2 {
-            color: black; /* Setting title in black */
+            color: #FEABB0;
             margin-bottom: 5px; /* Tighter spacing */
         }
         p {
-            color: grey; /* Description in grey */
+            color: white; /* Description in grey */
             margin-top: 0;
-            font-size: 10pt; /* Smaller font for descriptions */
+            font-size: 14pt; /* Smaller font for descriptions */
         }
         label {
             display: block;
             margin-bottom: 10px;
-            color: #666;
-            font-size: 12pt; /* Increased from default to 12pt */
+            color: white;
+            font-size: 14pt; /* Increased from default to 12pt */
+            font-weight: bold;
         }
         .api-key-container, .overlay-opacity-container, .prefix-button-container {
             position: relative;
@@ -59,7 +60,8 @@
             color: black; /* Dark pink text */
         }
         input[type="range"], select, button {
-            background-color: lightgrey; /* Light pink for other inputs and buttons */
+            background-color: red; /* Light pink for other inputs and buttons */
+
         }
         .prefix-button-container {
             display: flex; /* Align buttons horizontally */
@@ -69,14 +71,15 @@
         .prefix-button, .prefix-button.selected {
             font-size: 12pt; /* Ensure button matches input font size */
             padding: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid white;
             border-radius: 4px;
             cursor: pointer;
-            background-color: rgb(237, 237, 237); /* Light pink background for text inputs */
+            background-color: white; /* Light pink background for text inputs */
             color: darkgrey; /* Dark pink text */
         }
         .prefix-button.selected {
-            background-color: #FFC0CB; /* Dark pink background for selected */
+            background-color: #FEABB0; /* Dark pink background for selected */
+            border: 1px solid #FEABB0;
             color: black;
         }
         .toggle-api-key {
@@ -105,6 +108,16 @@
             height: 169px;
             object-fit: cover;
             font-size: 12pt; /* Increased from default to 12pt */
+        }
+        .image-logo {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px;
+        }
+        .image-logo img {
+            width: 210px;
+            height: 111px;
+            object-fit: cover;
         }
         button {
             width: 100%;
@@ -149,13 +162,14 @@
     </style>
 </head>
 <body>
-    <h1>Settings</h1>
-    <br></br>
+    <div class="image-logo">
+        <div id="logo"><img src="../../assets/icons/logo_large.png" alt="LinkedIn UnHumbled Logo"></div>
+    </div>
     <form id="settingsForm">
         <h2>Hide Humbled Text</h2>
         <p>Specify keywords that, when detected in posts, will ensure the post is greyed out and marked with emojis</p>
         <label for="filterWords">Filter Words:</label>
-        <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words" value="humble, proud, blessed">
+        <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words" value="humbled, proud, blessed">
         <label for="filterWordsPrefix">Filter Words - Prefix:</label>
         <div class="prefix-button-container">
             <button type="button" class="prefix-button" data-value="none">None</button>
@@ -163,15 +177,12 @@
             <button type="button" class="prefix-button selected" data-value="clown">&#x1F921;</button>
             <button type="button" class="prefix-button" data-value="poop">&#x1F4A9;</button>
         </div>
-        <br></br>
         <hr style="margin-top: 20px; margin-bottom: 20px;">
         <h2>Overlay Cringe Images</h2>
         <p>Choose an image to overlay on detected 'cringe' selfies, adjusting its opacity as needed.</p>
-        <label for="overlayImage">Overlay Image:</label>
         <div class="image-preview">
-            <div id="dog" class="highlight"><img src="../../assets/dog.gif" alt="Dog"></div>
-            <div id="clown"><img src="../../assets/clown.webp" alt="Clown"></div>
-            <div id="trump"><img src="../../assets/trump.jpg" alt="Trump"></div>
+            <div id="dog_gif" class="highlight"><img src="../../assets/dog.gif" alt="Confused dog GIF"></div>
+            <div id="dog_static"><img src="../../assets/dog_static.png" alt="Confused dog image"></div>
         </div>
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <label for="overlayOpacity">Overlay Opacity:</label>
