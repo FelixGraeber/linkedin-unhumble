@@ -7,11 +7,18 @@
             font-family: Arial, sans-serif;
             padding: 20px;
             width: 200px;
+            background-color: black;
         }
-        h1 {
-            color: #fd7c85;
-            font-size: 18px;
-            margin-bottom: 20px;
+        .image-logo {
+            display: flex;
+            justify-content: space-around;
+            margin: 10px;
+        }
+
+        .image-logo img {
+            width: 180px;
+            height: 95px;
+            object-fit: cover;
         }
         button {
             width: 100%;
@@ -22,6 +29,7 @@
             border: none;
             border-radius: 4px;
             cursor: pointer;
+            font-size: 16px;
         }
         button:hover {
             background-color: #fdc7ca;
@@ -30,7 +38,9 @@
 </head>
 <body>
     <div style="text-align: center;">
-        <h1>LinkedIn Unhumbled</h1>
+        <div class="image-logo">
+            <div id="logo"><img src="../../assets/icons/logo_large.png" alt="LinkedIn UnHumbled Logo"></div>
+        </div>
         <button id="settingsButton">Settings</button>
     </div>
     <script src="popup.js"></script>
