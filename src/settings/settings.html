@@ -15,9 +15,8 @@
 
         form {
             background: #000;
-            padding: 20px;
+            padding: 10px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             max-width: 690px;
             width: 100%;
             margin-left: auto;
@@ -32,6 +31,7 @@
         }
 
         h2 {
+            font-size: 16pt;
             color: #FEABB0;
             margin-bottom: 5px;
         }
@@ -39,7 +39,10 @@
         p {
             color: white;
             margin-top: 0;
-            font-size: 14pt;
+        }
+        
+        a {
+            color: #FFC0CB
         }
 
         label {
@@ -57,20 +60,18 @@
         }
 
         input[type="text"],
-        input[type="password"],
         input[type="range"] {
             width: calc(100% - 22px);
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ddd;
             border-radius: 4px;
-            font-size: 12pt;
         }
 
-        input[type="text"],
-        input[type="password"] {
+        input[type="text"] {
             background-color: rgb(237, 237, 237);
             color: black;
+            font-size: 14pt;
         }
 
         input[type="range"],
@@ -88,7 +89,6 @@
 
         .prefix-button,
         .prefix-button.selected {
-            font-size: 12pt;
             padding: 10px;
             border: 1px solid white;
             border-radius: 4px;
@@ -115,30 +115,26 @@
             display: flex;
             justify-content: space-around;
             margin-bottom: 20px;
-            font-size: 12pt;
         }
 
         .image-preview div {
             padding: 10px;
-            font-size: 12pt;
         }
 
         .image-preview div.highlight {
             border: 5px solid #FFC0CB;
-            font-size: 12pt;
         }
 
         .image-preview img {
             width: 169px;
             height: 169px;
             object-fit: cover;
-            font-size: 12pt;
         }
 
         .image-logo {
             display: flex;
             justify-content: space-around;
-            margin: 10px;
+            margin-top: 20px;
         }
 
         .image-logo img {
@@ -165,7 +161,6 @@
         @media (max-width: 600px) {
             form {
                 margin: 20px;
-                font-size: 12pt;
             }
         }
 
@@ -198,8 +193,8 @@
         <div id="logo"><img src="../../assets/icons/logo_large.png" alt="LinkedIn UnHumbled Logo"></div>
     </div>
     <form id="settingsForm">
-        <h2>Hide Humbled Text</h2>
-        <p>Specify keywords that, when detected in posts, will ensure the post is greyed out and marked with emojis</p>
+        <h2>Hide Humbled Posts</h2>
+        <p>Specify keywords that, when detected in posts, will put emojis before the post and grey out the text</p>
         <label for="filterWords">Filter Words:</label>
         <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words"
             value="humbled, proud, blessed">
@@ -210,21 +205,18 @@
             <button type="button" class="prefix-button selected" data-value="clown">&#x1F921;</button>
             <button type="button" class="prefix-button" data-value="poop">&#x1F4A9;</button>
         </div>
-        <hr style="margin-top: 20px; margin-bottom: 20px;">
+        
+        <hr style="margin-top: 40px; margin-bottom: 40px;">
+        
         <h2>Overlay Cringe Images</h2>
-        <p>Choose an image to overlay on detected 'cringe' selfies, adjusting its opacity as needed.</p>
+        <p>Choose if a GIF or an image of confused dog should be overlayed over 'cringe' selfies and adjust opacity</p>
         <div class="image-preview">
             <div id="dog_gif" class="highlight"><img src="../../assets/dog.gif" alt="Confused dog GIF"></div>
             <div id="dog_static"><img src="../../assets/dog_static.png" alt="Confused dog image"></div>
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <label for="overlayOpacity">Overlay Opacity:</label>
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <input type="range" id="overlayOpacity" name="overlayOpacity" min="0" max="100">
-                <span id="opacityValue">69%</span>
-            </div>
-        </div>
         <button type="submit">Save</button>
+        <br></br>
+        <p style="font-size: 12pt; text-align: center;">We use AI to classify cringe images - please consider <a href="https://www.paypal.com/splasher" target="_blank">donating</a> to cover server cost!</p>
     </form>
     <script src="settings.js"></script>
 </body>
