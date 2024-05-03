@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LinkedIn Unhumbled",
+  "name": "LinkedIn UnHumbled",
   "version": "1.6.9",
   "description": "Make LinkedIn Bearable Again. Filter out 'humbled' and 'proud' posts and overlay cringe selfies with a confused-dog GIF.",
   "permissions": [
@@ -27,7 +27,7 @@
   "action": {
     "default_icon": "./assets/icons/icon48.png",
     "default_popup": "./src/popup/popup.html",
-    "default_title": "LinkedIn Unhumble"
+    "default_title": "LinkedIn UnHumbled"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
