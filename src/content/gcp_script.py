@@ -8,9 +8,13 @@ import requests
 from PIL import Image
 import io
 import time
+from google.cloud import firestore
 
 # Initialize Flask app
 app = Flask(__name__)
+
+# Initialize Firestore
+db = firestore.Client()
 
 # Apply CORS to all domains on all routes, allowing all headers and methods.
 # Updated to handle CORS options more explicitly
@@ -84,7 +88,7 @@ def process_classification_request(data):
     logging.info("Image media type: %s" % image_media_type)
     if not image_data or not image_media_type:
         return None, "Failed to prepare image"
-    return (model, messages, image_data, image_media_type, classification_request), None
+    return (model, messages, image_data, image_media_type, classification_request, image_url), None
 
 def send_classification_request(model, image_data, image_media_type, classification_request):
     """Send the classification request to the Anthropic API with exponential backoff for rate limiting."""
@@ -139,45 +143,67 @@ def send_classification_request(model, image_data, image_media_type, classificat
     return None, "Max attempts reached, failed to send classification request."
 
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
-def classify_image(request):  # Removed the request parameter here
+def classify_image():
     if request.method == 'OPTIONS':
         return _build_cors_preflight_response()
     elif request.method == 'POST':
-        logging.info("Request received: %s" % request.method)
         data, error = parse_request_data(request)
         if error:
+            logging.error(f"Error parsing request data: {error}")
             return jsonify({"error": error}), 400
+
         classification_data, error = process_classification_request(data)
         if error:
+            logging.error(f"Error processing classification request: {error}")
             return jsonify({"error": error}), 500
 
         model, messages, image_data, image_media_type, classification_request = classification_data
-        logging.info("Model: %s" % model)
-        logging.info("Messages: %s" % messages)
-        logging.info("Image data: %s" % image_data)
-        logging.info("Image media type: %s" % image_media_type)
-        logging.info("Classification request: %s" % classification_request)
         response, error = send_classification_request(model, image_data, image_media_type, classification_request)
-        logging.info("Response: %s" % response)
         if error:
+            logging.error(f"Error sending classification request: {error}")
             return jsonify({"error": error}), 500
 
+        try:
+            # Adapting JavaScript logic to Python
+            if hasattr(response, 'content') and isinstance(response.content, list):
+                content_item = next((item for item in response.content if item.type == 'text'), None)
+                if content_item:
+                    classification_result = content_item.text
+                    image_url = messages[0]['content'][0]['source']['url']
+
+                    # Firestore document handling
+                    doc_ref = db.collection('image_classifications').document(image_url)
+                    doc = doc_ref.get()
+                    if doc.exists:
+                        doc_ref.update({
+                            'counter': firestore.Increment(1),
+                            'last_classified': firestore.SERVER_TIMESTAMP
+                        })
+                        logging.info(f"Updated existing document for URL {image_url}")
+                    else:
+                        doc_ref.set({
+                            'url': image_url,
+                            'classification': classification_result,
+                            'counter': 1,
+                            'created_at': firestore.SERVER_TIMESTAMP
+                        })
+                        logging.info(f"Created new document for URL {image_url}")
+                else:
+                    logging.error("No text content found in response")
+                    return jsonify({"error": "No classification result found"}), 500
+        except Exception as e:
+            logging.error(f"Failed to process response: {str(e)}")
+            return jsonify({"error": "Error processing response data"}), 500
+
         response_dict = {
-            "id": response.id,
-            "content": [{"text": block.text, "type": block.type} for block in response.content],
-            "model": response.model,
-            "role": response.role,
-            "stop_reason": response.stop_reason,
-            "type": response.type,
-            "usage": {
-                "input_tokens": response.usage.input_tokens,
-                "output_tokens": response.usage.output_tokens
-            }
+            "url": image_url,
+            "classification": classification_result
         }
-        logging.info("Response dictionary: %s" % response_dict)
-        return _corsify_actual_response(jsonify(response_dict)), 200
+        return jsonify(response_dict), 200
     else:
+        logging.error("Invalid request method")
         return jsonify({"error": "Method not allowed"}), 405
+
 
 def _build_cors_preflight_response():
     response = make_response()
