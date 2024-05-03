@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn Unhumbled",
-  "version": "1.4.2",
-  "description": "Filter out 'humbled' and 'proud' posts and overlay cringe selfies from LinkedIn.",
+  "version": "1.6.9",
+  "description": "Make LinkedIn Bearable Again. Filter out 'humbled' and 'proud' posts and overlay cringe selfies with a confused-dog GIF.",
   "permissions": [
     "webNavigation", "scripting", "storage"
   ],
