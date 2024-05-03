@@ -144,6 +144,17 @@
             object-fit: cover;
         }
 
+        .image-label {
+            display: block;
+            text-align: center;
+            color: #FFC0CB;
+            /* Adjust color as needed */
+            font-size: 14pt;
+            /* Adjust size as needed */
+            margin-bottom: 5px;
+            /* Space between label and image */
+        }
+
         button {
             width: 100%;
             padding: 10px;
@@ -196,10 +207,10 @@
     <form id="settingsForm">
         <h2>Hide Humbled Posts</h2>
         <p>Specify keywords that, when detected in posts, will put emojis before the post and grey out the text</p>
-        <label for="filterWords">Filter Words:</label>
+        <label for="filterWords">Words to filter:</label>
         <input type="text" id="filterWords" name="filterWords" placeholder="Enter comma separated words"
             value="humbled, proud, blessed">
-        <label for="filterWordsPrefix">Filter Words - Prefix:</label>
+        <label for="filterWordsPrefix">Emoji injection:</label>
         <div class="prefix-button-container">
             <button type="button" class="prefix-button" data-value="none">None</button>
             <button type="button" class="prefix-button" data-value="humbled">&#x1F60C;</button>
@@ -212,8 +223,14 @@
         <h2>Overlay Cringe Images</h2>
         <p>Choose if a GIF or an image of confused dog should be overlayed over 'cringe' selfies and adjust opacity</p>
         <div class="image-preview">
-            <div id="dog_gif" class="highlight"><img src="../../assets/dog.gif" alt="Confused dog GIF"></div>
-            <div id="dog_static"><img src="../../assets/dog_static.png" alt="Confused dog image"></div>
+            <div id="dog_gif" class="highlight">
+                <span class="image-label">GIF</span>
+                <img src="../../assets/dog.gif" alt="Confused dog GIF">
+            </div>
+            <div id="dog_static">
+                <span class="image-label">Static image</span>
+                <img src="../../assets/dog_static.png" alt="Confused dog image">
+            </div>
         </div>
         <button type="submit">Save</button>
         <br></br>
