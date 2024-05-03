@@ -93,8 +93,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             img.parentNode.insertBefore(overlay, img.nextSibling);
             overlay.style.transition = "opacity 2s"; // Set transition for opacity change
             overlay.style.opacity = 0; // Start with the overlay hidden
-            const finalOpacity = 69;
-            setTimeout(() => overlay.style.opacity = finalOpacity, 2000); // Fade in the overlay over 2 seconds to the final opacity from settings
+            setTimeout(() => overlay.style.opacity = 0.69, 2000); // Fade in the overlay over 2 seconds to the final opacity from settings
             overlay.addEventListener('click', () => overlay.remove());
         }
     }
@@ -103,14 +102,19 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         return new Promise(resolve => {
             chrome.storage.sync.get('selectedImage', function (data) {
                 const imageUrlMap = {
-                    'pig': chrome.runtime.getURL("assets/pig.webp"),
-                    'clown': chrome.runtime.getURL("assets/clown.webp"),
-                    'dog': chrome.runtime.getURL("assets/dog.gif"),
-                    'trump': chrome.runtime.getURL("assets/trump.jpg")
+                    'dog_gif': chrome.runtime.getURL("assets/dog.gif"),
+                    'dog_static': chrome.runtime.getURL("assets/dog_static.png")
                 };
                 resolve(imageUrlMap[data.selectedImage || '']);
             });
         });
+    }
+    
+    function setOverlayStyle(overlay, img) {
+        overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
+        overlay.style.opacity = 0.69;
+        img.parentNode.style.position = "relative";
+        img.style.objectFit = "cover";
     }
 
     async function modifyLinkedInPosts() {    
