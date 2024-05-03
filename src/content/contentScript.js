@@ -113,15 +113,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         });
     }
 
-    function setOverlayStyle(overlay, img) {
-        overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
-        chrome.storage.sync.get('overlayOpacity', function (data) {
-            overlay.style.opacity = data.overlayOpacity / 100;
-        });
-        img.parentNode.style.position = "relative";
-        img.style.objectFit = "cover";
-    }
-
     async function modifyLinkedInPosts() {    
     
         let prefix = '';
