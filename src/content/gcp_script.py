@@ -99,8 +99,24 @@ def send_classification_request(model, image_data, image_media_type, classificat
     backoff_time = 1  # Start with 1 second
     max_attempts = 5
     model = 'claude-3-haiku-20240307'
-    max_tokens = 512
-    classification_request = "You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (no people, multiple people, not self-promotional). ONLY RESPOND WITH THE CLASSIFICATION 'selfpromotional_image' OR 'other':" 
+    max_tokens = 1024  # Increased to accommodate more detailed reasoning
+    classification_request = """
+    Analyze the following image and provide a detailed reasoning about whether it's a self-promotional LinkedIn image. 
+    Consider the following factors:
+    1. Is there only one person in the image?
+    2. Is the person taking up the majority of the image?
+    3. Is the person posing in a very unnatural way?
+    4. Does the image appear to be a professional headshot or selfie?
+    5. Is the background neutral or related to a professional setting?
+
+    Based on your analysis, classify the image as either 'selfpromotional_image' or 'other'.
+    'selfpromotional_image' should be used if all or most of the above factors are true.
+    'other' should be used for group images, images where the person is only a small portion, or non-person images.
+
+    Provide your reasoning step by step, then give your final classification.
+    Format your response as a JSON string with two keys: 'reasoning' (a string with your step-by-step analysis) and 'classification' (either 'selfpromotional_image' or 'other').
+    """
+    
     for attempt in range(max_attempts):
         try:
             response = client.messages.create(
@@ -157,19 +173,21 @@ def classify_image():
             logging.error(f"Error processing classification request: {error}")
             return jsonify({"error": error}), 500
 
-        model, messages, image_data, image_media_type, classification_request = classification_data
+        model, messages, image_data, image_media_type, classification_request, image_url = classification_data
         response, error = send_classification_request(model, image_data, image_media_type, classification_request)
         if error:
             logging.error(f"Error sending classification request: {error}")
             return jsonify({"error": error}), 500
 
         try:
-            # Adapting JavaScript logic to Python
             if hasattr(response, 'content') and isinstance(response.content, list):
                 content_item = next((item for item in response.content if item.type == 'text'), None)
                 if content_item:
-                    classification_result = content_item.text
-                    image_url = messages[0]['content'][0]['source']['url']
+                    # Parse the JSON string from the API response
+                    import json
+                    result = json.loads(content_item.text)
+                    reasoning = result.get('reasoning', '')
+                    classification_result = result.get('classification', '')
 
                     # Firestore document handling
                     doc_ref = db.collection('image_classifications').document(image_url)
@@ -177,13 +195,16 @@ def classify_image():
                     if doc.exists:
                         doc_ref.update({
                             'counter': firestore.Increment(1),
-                            'last_classified': firestore.SERVER_TIMESTAMP
+                            'last_classified': firestore.SERVER_TIMESTAMP,
+                            'classification': classification_result,
+                            'reasoning': reasoning
                         })
                         logging.info(f"Updated existing document for URL {image_url}")
                     else:
                         doc_ref.set({
                             'url': image_url,
                             'classification': classification_result,
+                            'reasoning': reasoning,
                             'counter': 1,
                             'created_at': firestore.SERVER_TIMESTAMP
                         })
@@ -197,13 +218,13 @@ def classify_image():
 
         response_dict = {
             "url": image_url,
-            "classification": classification_result
+            "classification": classification_result,
+            "reasoning": reasoning
         }
         return jsonify(response_dict), 200
     else:
         logging.error("Invalid request method")
         return jsonify({"error": "Method not allowed"}), 405
-
 
 def _build_cors_preflight_response():
     response = make_response()
@@ -227,7 +248,7 @@ def main():
     logging.info("Received request at main entry point.")
     return app
 
-
 if __name__ == '__main__':
     logging.info("Server is running...")
-    app.run(port=50001, debug=True)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port, debug=True)
