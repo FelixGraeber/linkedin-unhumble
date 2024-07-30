@@ -12,19 +12,10 @@ from google.cloud import firestore
 
 # Initialize Flask app
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": os.getenv('CORS_ORIGINS', '*').split(',')}})
 
 # Initialize Firestore
 db = firestore.Client()
-
-# Apply CORS to all domains on all routes, allowing all headers and methods.
-# Updated to handle CORS options more explicitly
-@app.after_request
-def after_request(response):
-    header = response.headers
-    header['Access-Control-Allow-Origin'] = '*'
-    header['Access-Control-Allow-Headers'] = 'Content-Type,Authorization'
-    header['Access-Control-Allow-Methods'] = 'GET,PUT,POST,DELETE,OPTIONS'
-    return response
 
 def prepare_image(image_url):
     """Fetch, resize to 500px on the longer side, convert to JPEG, and base64 encode the image."""
@@ -161,88 +152,78 @@ def send_classification_request(model, image_data, image_media_type, classificat
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
 def classify_image():
     if request.method == 'OPTIONS':
-        return _build_cors_preflight_response()
-    elif request.method == 'POST':
-        data, error = parse_request_data(request)
-        if error:
-            logging.error(f"Error parsing request data: {error}")
-            return jsonify({"error": error}), 400
+        response = make_response()
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+        return response
 
-        classification_data, error = process_classification_request(data)
-        if error:
-            logging.error(f"Error processing classification request: {error}")
-            return jsonify({"error": error}), 500
+    data, error = parse_request_data(request)
+    if error:
+        logging.error(f"Error parsing request data: {error}")
+        return jsonify({"error": error}), 400
 
-        model, messages, image_data, image_media_type, classification_request, image_url = classification_data
-        response, error = send_classification_request(model, image_data, image_media_type, classification_request)
-        if error:
-            logging.error(f"Error sending classification request: {error}")
-            return jsonify({"error": error}), 500
+    classification_data, error = process_classification_request(data)
+    if error:
+        logging.error(f"Error processing classification request: {error}")
+        return jsonify({"error": error}), 500
 
-        try:
-            if hasattr(response, 'content') and isinstance(response.content, list):
-                content_item = next((item for item in response.content if item.type == 'text'), None)
-                if content_item:
-                    # Parse the JSON string from the API response
-                    import json
-                    result = json.loads(content_item.text)
-                    reasoning = result.get('reasoning', '')
-                    classification_result = result.get('classification', '')
+    model, messages, image_data, image_media_type, classification_request, image_url = classification_data
+    response, error = send_classification_request(model, image_data, image_media_type, classification_request)
+    if error:
+        logging.error(f"Error sending classification request: {error}")
+        return jsonify({"error": error}), 500
 
-                    # Firestore document handling
-                    doc_ref = db.collection('image_classifications').document(image_url)
-                    doc = doc_ref.get()
-                    if doc.exists:
-                        doc_ref.update({
-                            'counter': firestore.Increment(1),
-                            'last_classified': firestore.SERVER_TIMESTAMP,
-                            'classification': classification_result,
-                            'reasoning': reasoning
-                        })
-                        logging.info(f"Updated existing document for URL {image_url}")
-                    else:
-                        doc_ref.set({
-                            'url': image_url,
-                            'classification': classification_result,
-                            'reasoning': reasoning,
-                            'counter': 1,
-                            'created_at': firestore.SERVER_TIMESTAMP
-                        })
-                        logging.info(f"Created new document for URL {image_url}")
+    try:
+        if hasattr(response, 'content') and isinstance(response.content, list):
+            content_item = next((item for item in response.content if item.type == 'text'), None)
+            if content_item:
+                # Parse the JSON string from the API response
+                import json
+                result = json.loads(content_item.text)
+                reasoning = result.get('reasoning', '')
+                classification_result = result.get('classification', '')
+
+                # Firestore document handling
+                doc_ref = db.collection('image_classifications').document(image_url)
+                doc = doc_ref.get()
+                if doc.exists:
+                    doc_ref.update({
+                        'counter': firestore.Increment(1),
+                        'last_classified': firestore.SERVER_TIMESTAMP,
+                        'classification': classification_result,
+                        'reasoning': reasoning
+                    })
+                    logging.info(f"Updated existing document for URL {image_url}")
                 else:
-                    logging.error("No text content found in response")
-                    return jsonify({"error": "No classification result found"}), 500
-        except Exception as e:
-            logging.error(f"Failed to process response: {str(e)}")
-            return jsonify({"error": "Error processing response data"}), 500
+                    doc_ref.set({
+                        'url': image_url,
+                        'classification': classification_result,
+                        'reasoning': reasoning,
+                        'counter': 1,
+                        'created_at': firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Created new document for URL {image_url}")
+            else:
+                logging.error("No text content found in response")
+                return jsonify({"error": "No classification result found"}), 500
+    except Exception as e:
+        logging.error(f"Failed to process response: {str(e)}")
+        return jsonify({"error": "Error processing response data"}), 500
 
-        response_dict = {
-            "url": image_url,
-            "classification": classification_result,
-            "reasoning": reasoning
-        }
-        return jsonify(response_dict), 200
-    else:
-        logging.error("Invalid request method")
-        return jsonify({"error": "Method not allowed"}), 405
-
-def _build_cors_preflight_response():
-    response = make_response()
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    response.headers.add('Access-Control-Allow-Headers', '*')
-    response.headers.add('Access-Control-Allow-Methods', '*')
-    return response
-
-def _corsify_actual_response(response):
-    response.headers.add("Access-Control-Allow-Origin", "*")
-    return response
+    response_dict = {
+        "url": image_url,
+        "classification": classification_result,
+        "reasoning": reasoning
+    }
+    return jsonify(response_dict), 200
 
 @app.errorhandler(Exception)
 def handle_unexpected_error(error):
     """Global error handler."""
     response = jsonify({'message': 'An unexpected error occurred', 'details': str(error)})
     response.status_code = 500
-    return _corsify_actual_response(response)
+    return response
 
 def main():
     logging.info("Received request at main entry point.")
