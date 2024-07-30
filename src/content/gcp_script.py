@@ -150,7 +150,7 @@ def send_classification_request(model, image_data, image_media_type, classificat
     return None, "Max attempts reached, failed to send classification request."
 
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
-def classify_image():
+def classify_image(request):  # Add 'request' parameter here
     if request.method == 'OPTIONS':
         response = make_response()
         response.headers.add('Access-Control-Allow-Origin', '*')
