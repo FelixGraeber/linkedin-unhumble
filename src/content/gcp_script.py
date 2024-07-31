@@ -2,11 +2,8 @@ import os
 import logging
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
-import anthropic
-import base64
+from openai import OpenAI
 import requests
-from PIL import Image
-import io
 import time
 from google.cloud import firestore
 
@@ -16,45 +13,6 @@ CORS(app, resources={r"/*": {"origins": os.getenv('CORS_ORIGINS', '*').split(','
 
 # Initialize Firestore
 db = firestore.Client()
-
-def prepare_image(image_url):
-    """Fetch, resize to 500px on the longer side, convert to JPEG, and base64 encode the image."""
-    try:
-        logging.info(f"Preparing image from URL: {image_url}")
-        image_media_type = "image/jpeg"
-        response = requests.get(image_url)
-        logging.info("Image fetched successfully.")
-        # Open the image using BytesIO
-        image = Image.open(io.BytesIO(response.content))
-        logging.info(f"Image opened. Initial format: {image.format}, size: {image.size}, mode: {image.mode}")
-        # Convert image to RGB if it's not already in a compatible format
-        if image.mode in ["P", "RGBA"]:
-            image = image.convert("RGB")
-            logging.info("Image converted to RGB.")
-        # Calculate new size, keeping the aspect ratio
-        if image.width > image.height:
-            new_height = int((500 / image.width) * image.height)
-            new_size = (500, new_height)
-        else:
-            new_width = int((500 / image.height) * image.width)
-            new_size = (new_width, 500)
-        logging.info(f"Resizing image to new size: {new_size}")
-        # Resize the image
-        resized_image = image.resize(new_size, Image.Resampling.LANCZOS)
-        logging.info("Image resized successfully.")
-        # Convert the image to JPEG
-        with io.BytesIO() as output:
-            resized_image.save(output, format="JPEG")
-            jpeg_data = output.getvalue()
-        logging.info("Image converted to JPEG.")
-        # Base64 encode the JPEG image
-        image_data = base64.b64encode(jpeg_data).decode("utf-8")
-        logging.info("Output: Image base64 encoded successfully: %s" % image_data)
-        logging.info("Output: Image media type: %s" % image_media_type)
-        return image_data, image_media_type
-    except Exception as e:
-        logging.error(f"Failed to prepare image from URL {image_url}: {str(e)}")
-        return None, None
 
 def parse_request_data(request):
     """Parse and validate request data."""
@@ -68,28 +26,26 @@ def parse_request_data(request):
 
 def process_classification_request(data):
     """Process the classification request."""
-    model = data.get('data', {}).get('model', 'claude-3-haiku-20240229')
+    model = data.get('data', {}).get('model', 'gpt-4o-mini')
     messages = data.get('data', {}).get('messages', [])
-    first_message = messages[0]
-    image_url = first_message.get('content', [])[0].get('source', {}).get('url')
-    classification_request = first_message.get('content', [])[1].get('text')
+    first_message = messages[0] if messages else {}
+    content = first_message.get('content', [])
+    image_url = next((item.get('image_url', {}).get('url') for item in content if item.get('type') == 'image_url'), None)
+    classification_request = next((item.get('text') for item in content if item.get('type') == 'text'), '')
     logging.info("Classification request: %s" % classification_request)
-    image_data, image_media_type = prepare_image(image_url)
-    logging.info("Image data: %s" % image_data)
-    logging.info("Image media type: %s" % image_media_type)
-    if not image_data or not image_media_type:
-        return None, "Failed to prepare image"
-    return (model, messages, image_data, image_media_type, classification_request, image_url), None
+    logging.info("Image URL: %s" % image_url)
+    if not image_url:
+        return None, "No image URL provided"
+    return (model, messages, image_url, classification_request), None
 
-def send_classification_request(model, image_data, image_media_type, classification_request):
-    """Send the classification request to the Anthropic API with exponential backoff for rate limiting."""
-    logging.info("Sending classification request to Anthropic API.")
-    client = anthropic.Anthropic(api_key=os.getenv('API_KEY'))
-    logging.info("Anthropic client initialized.")
-    logging.info("API key: %s" % os.getenv('API_KEY'))
+def send_classification_request(model, image_url, classification_request):
+    """Send the classification request to the OpenAI API with exponential backoff for rate limiting."""
+    logging.info("Sending classification request to OpenAI API.")
+    client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+    logging.info("OpenAI client initialized.")
+    logging.info("API key: %s" % os.getenv('OPENAI_API_KEY'))
     backoff_time = 1  # Start with 1 second
     max_attempts = 5
-    model = 'claude-3-haiku-20240307'
     max_tokens = 1024  # Increased to accommodate more detailed reasoning
     classification_request = """
     Analyze the following image and provide a detailed reasoning about whether it's a self-promotional LinkedIn image. 
@@ -110,28 +66,26 @@ def send_classification_request(model, image_data, image_media_type, classificat
     
     for attempt in range(max_attempts):
         try:
-            response = client.messages.create(
+            response = client.chat.completions.create(
                 model=model,
-                max_tokens=max_tokens,
                 messages=[
                     {
                         "role": "user",
                         "content": [
                             {
-                                "type": "image",
-                                "source": {
-                                    "type": "base64",
-                                    "media_type": image_media_type,
-                                    "data": image_data,
-                                },
-                            },
-                            {
                                 "type": "text",
                                 "text": classification_request
+                            },
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_url,
+                                },
                             }
                         ],
                     }
                 ],
+                max_tokens=max_tokens,
             )
             logging.info("Classification request sent successfully, response: %s" % response)
             return response, None
@@ -141,10 +95,10 @@ def send_classification_request(model, image_data, image_media_type, classificat
                 time.sleep(backoff_time)
                 backoff_time *= 2  # Exponential backoff
             else:
-                logging.error(f"Failed to send classification request to Anthropic API: {str(e)}")
+                logging.error(f"Failed to send classification request to OpenAI API: {str(e)}")
                 return None, str(e)
         except Exception as e:
-            logging.error(f"Failed to send classification request to Anthropic API: {str(e)}")
+            logging.error(f"Failed to send classification request to OpenAI API: {str(e)}")
             return None, str(e)
     logging.error("Max attempts reached, failed to send classification request.")
     return None, "Max attempts reached, failed to send classification request."
@@ -168,45 +122,43 @@ def classify_image(request):  # Add 'request' parameter here
         logging.error(f"Error processing classification request: {error}")
         return jsonify({"error": error}), 500
 
-    model, messages, image_data, image_media_type, classification_request, image_url = classification_data
-    response, error = send_classification_request(model, image_data, image_media_type, classification_request)
+    model, messages, image_url, classification_request = classification_data
+    response, error = send_classification_request(model, image_url, classification_request)
     if error:
         logging.error(f"Error sending classification request: {error}")
         return jsonify({"error": error}), 500
 
     try:
-        if hasattr(response, 'content') and isinstance(response.content, list):
-            content_item = next((item for item in response.content if item.type == 'text'), None)
-            if content_item:
-                # Parse the JSON string from the API response
-                import json
-                result = json.loads(content_item.text)
-                reasoning = result.get('reasoning', '')
-                classification_result = result.get('classification', '')
+        if response.choices and response.choices[0].message.content:
+            # Parse the JSON string from the API response
+            import json
+            result = json.loads(response.choices[0].message.content)
+            reasoning = result.get('reasoning', '')
+            classification_result = result.get('classification', '')
 
-                # Firestore document handling
-                doc_ref = db.collection('image_classifications').document(image_url)
-                doc = doc_ref.get()
-                if doc.exists:
-                    doc_ref.update({
-                        'counter': firestore.Increment(1),
-                        'last_classified': firestore.SERVER_TIMESTAMP,
-                        'classification': classification_result,
-                        'reasoning': reasoning
-                    })
-                    logging.info(f"Updated existing document for URL {image_url}")
-                else:
-                    doc_ref.set({
-                        'url': image_url,
-                        'classification': classification_result,
-                        'reasoning': reasoning,
-                        'counter': 1,
-                        'created_at': firestore.SERVER_TIMESTAMP
-                    })
-                    logging.info(f"Created new document for URL {image_url}")
+            # Firestore document handling
+            doc_ref = db.collection('image_classifications').document(image_url)
+            doc = doc_ref.get()
+            if doc.exists:
+                doc_ref.update({
+                    'counter': firestore.Increment(1),
+                    'last_classified': firestore.SERVER_TIMESTAMP,
+                    'classification': classification_result,
+                    'reasoning': reasoning
+                })
+                logging.info(f"Updated existing document for URL {image_url}")
             else:
-                logging.error("No text content found in response")
-                return jsonify({"error": "No classification result found"}), 500
+                doc_ref.set({
+                    'url': image_url,
+                    'classification': classification_result,
+                    'reasoning': reasoning,
+                    'counter': 1,
+                    'created_at': firestore.SERVER_TIMESTAMP
+                })
+                logging.info(f"Created new document for URL {image_url}")
+        else:
+            logging.error("No content found in response")
+            return jsonify({"error": "No classification result found"}), 500
     except Exception as e:
         logging.error(f"Failed to process response: {str(e)}")
         return jsonify({"error": "Error processing response data"}), 500
