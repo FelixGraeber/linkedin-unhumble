@@ -1,0 +1,1 @@
+zip -r linkedin-unhumbled.zip . -x "*/venv/*" "*/screenshots/*" "*.zip" "*.git*" ".git/*" "*.DS_Store" "*/.DS_Store" "*/old/*" "*/00 Old/*"

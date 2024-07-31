@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn unhumbled",
-  "version": "69",
+  "version": "69.1",
   "description": "Make LinkedIn Bearable Again! Inject clown emojis into 'humbled' and 'proud' posts and overlay cringe selfies with confused-dog.GIF",
   "permissions": [
     "webNavigation", "scripting", "storage"
