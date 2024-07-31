@@ -78,22 +78,33 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     }
 
     function createRequestBody(imageSrc) {
-        return {
+        if (!imageSrc) {
+            console.error("No image source provided to createRequestBody");
+            return null;
+        }
+        console.debug("Creating request body for image:", imageSrc);
+        const requestBody = {
             data: {
-                model: "claude-3-haiku-20240307",
-                system: "You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (no people, multiple people, not self-promotional).",
+                model: "gpt-4o-mini",
                 messages: [
                     {
                         role: "user",
                         content: [
-                            { type: "image", source: { type: "url", media_type: "image/jpeg", url: imageSrc } },
-                            { type: "text", text: "ONLY RESPOND WITH THE CLASSIFICATION 'selfpromotional_image' OR 'other':" }
-                        ],
-                    },
-                ],
-                max_tokens: 320
-            }
+                            { type: "text", text: "ONLY RESPOND WITH THE CLASSIFICATION 'selfpromotional_image' OR 'other': You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (no people, multiple people, not self-promotional)." },
+                            {
+                                type: "image_url",
+                                image_url: {
+                                    url: imageSrc
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            max_tokens: 300
         };
+        console.debug("Created request body:", JSON.stringify(requestBody, null, 2));
+        return requestBody;
     }
 
     async function fetchImageClassification(requestBody) {
