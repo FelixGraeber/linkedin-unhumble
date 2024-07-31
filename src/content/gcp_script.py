@@ -6,16 +6,21 @@ from openai import OpenAI
 import requests
 import time
 from google.cloud import firestore
+import hashlib
 
 # Set the logging level at the beginning of your script
 logging.basicConfig(level=logging.INFO)
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": os.getenv('CORS_ORIGINS', '*').split(',')}})
+CORS(app, resources={r"/*": {"origins": "https://www.linkedin.com", "allow_headers": "*", "methods": "*"}})
 
-# Initialize Firestore
-db = firestore.Client()
+# Initialize Firestore (but don't fail if it's not available)
+try:
+    db = firestore.Client()
+except Exception as e:
+    logging.warning(f"Failed to initialize Firestore: {str(e)}")
+    db = None
 
 def parse_request_data(request):
     """Parse and validate request data."""
@@ -108,6 +113,38 @@ def send_classification_request(model, image_url, classification_request):
     logging.error("Max attempts reached, failed to send classification request.")
     return None, "Max attempts reached, failed to send classification request."
 
+def update_firestore(image_url, classification_result, reasoning):
+    """Update Firestore with classification results (optional)."""
+    if not db:
+        logging.info("Firestore is not initialized. Skipping database update.")
+        return
+
+    try:
+        # Create a hash of the image_url to use as the document ID
+        doc_id = hashlib.md5(image_url.encode()).hexdigest()
+        doc_ref = db.collection('image_classifications').document(doc_id)
+        doc = doc_ref.get()
+        if doc.exists:
+            doc_ref.update({
+                'url': image_url,  # Store the original URL in the document
+                'counter': firestore.Increment(1),
+                'last_classified': firestore.SERVER_TIMESTAMP,
+                'classification': classification_result,
+                'reasoning': reasoning
+            })
+            logging.info(f"Updated existing document for URL {image_url}")
+        else:
+            doc_ref.set({
+                'url': image_url,
+                'classification': classification_result,
+                'reasoning': reasoning,
+                'counter': 1,
+                'created_at': firestore.SERVER_TIMESTAMP
+            })
+            logging.info(f"Created new document for URL {image_url}")
+    except Exception as e:
+        logging.error(f"Failed to update or create Firestore document: {str(e)}")
+
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
 def classify_image(request):
     logging.info("Received classify_image request", request.get_data())
@@ -115,7 +152,7 @@ def classify_image(request):
     if request.method == 'OPTIONS':
         logging.info("Handling OPTIONS request")
         response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
         response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
         return response
@@ -151,29 +188,8 @@ def classify_image(request):
             logging.info(f"Classification result: {classification_result}")
             logging.info(f"Reasoning: {reasoning}")
 
-            try:
-                # Firestore document handling
-                doc_ref = db.collection('image_classifications').document(image_url)
-                doc = doc_ref.get()
-                if doc.exists:
-                    doc_ref.update({
-                        'counter': firestore.Increment(1),
-                        'last_classified': firestore.SERVER_TIMESTAMP,
-                        'classification': classification_result,
-                        'reasoning': reasoning
-                    })
-                    logging.info(f"Updated existing document for URL {image_url}")
-                else:
-                    doc_ref.set({
-                        'url': image_url,
-                        'classification': classification_result,
-                        'reasoning': reasoning,
-                        'counter': 1,
-                        'created_at': firestore.SERVER_TIMESTAMP
-                    })
-                    logging.info(f"Created new document for URL {image_url}")
-            except Exception as e:
-                logging.error(f"Failed to update or create document: {str(e)}")
+            # Update Firestore (optional)
+            update_firestore(image_url, classification_result, reasoning)
         else:
             logging.error("No content found in response")
             return jsonify({"error": "No classification result found"}), 500
@@ -186,6 +202,7 @@ def classify_image(request):
         "classification": classification_result,
         "reasoning": reasoning
     }
+    logging.info(f"Response successfully processed: {response_dict}")
     return jsonify(response_dict), 200
 
 @app.errorhandler(Exception)
