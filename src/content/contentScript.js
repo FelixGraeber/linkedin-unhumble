@@ -122,21 +122,43 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     }
 
     async function fetchImageClassification(requestBody) {
-        return fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', {
-            method: 'POST',
-            mode: 'cors', // Changed mode to 'cors'
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Received response for image classification:", data);
-                return data;
-            })
-            .catch(error => console.error('Error:', error));
+        try {
+            console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
+            
+            const response = await fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', {
+                method: 'POST',
+                mode: 'cors',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                },
+                body: JSON.stringify(requestBody)
+            });
+
+            console.log("Response status:", response.status);
+            console.log("Response headers:", JSON.stringify(Object.fromEntries(response.headers), null, 2));
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const rawText = await response.text();
+            console.log("Raw response:", rawText);
+
+            let data;
+            try {
+                data = JSON.parse(rawText);
+            } catch (parseError) {
+                console.error("Failed to parse response as JSON:", parseError);
+                throw new Error("Invalid JSON response");
+            }
+
+            console.log("Parsed response for image classification:", data);
+            return data;
+        } catch (error) {
+            console.error("Error in fetchImageClassification:", error);
+            throw error;
+        }
     }
 
     async function applyImageOverlay(img, classification) {

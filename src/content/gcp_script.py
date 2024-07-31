@@ -7,6 +7,9 @@ import requests
 import time
 from google.cloud import firestore
 
+# Set the logging level at the beginning of your script
+logging.basicConfig(level=logging.INFO)
+
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": os.getenv('CORS_ORIGINS', '*').split(',')}})
@@ -45,11 +48,10 @@ def send_classification_request(model, image_url, classification_request):
     logging.info("Sending classification request to OpenAI API.")
     client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
     logging.info("OpenAI client initialized.")
-    logging.info("API key: %s" % os.getenv('OPENAI_API_KEY'))
     backoff_time = 1  # Start with 1 second
     max_attempts = 5
     max_tokens = 1024  # Increased to accommodate more detailed reasoning
-    classification_request = """
+    classification_request_text = """
     Analyze the following image and provide a detailed reasoning about whether it's a self-promotional LinkedIn image. 
     Consider the following factors:
     1. Is there only one person in the image?
@@ -70,13 +72,14 @@ def send_classification_request(model, image_url, classification_request):
         try:
             response = client.chat.completions.create(
                 model=model,
+                response_format={ "type": "json_object"},
                 messages=[
                     {
                         "role": "user",
                         "content": [
                             {
                                 "type": "text",
-                                "text": classification_request
+                                "text": classification_request_text
                             },
                             {
                                 "type": "image_url",
@@ -106,8 +109,11 @@ def send_classification_request(model, image_url, classification_request):
     return None, "Max attempts reached, failed to send classification request."
 
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
-def classify_image(request):  # Add 'request' parameter here
+def classify_image(request):
+    logging.info("Received classify_image request", request.get_data())
+    
     if request.method == 'OPTIONS':
+        logging.info("Handling OPTIONS request")
         response = make_response()
         response.headers.add('Access-Control-Allow-Origin', '*')
         response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
@@ -119,10 +125,14 @@ def classify_image(request):  # Add 'request' parameter here
         logging.error(f"Error parsing request data: {error}")
         return jsonify({"error": error}), 400
 
+    logging.info("Request data parsed successfully")
+
     classification_data, error = process_classification_request(data)
     if error:
         logging.error(f"Error processing classification request: {error}")
         return jsonify({"error": error}), 500
+
+    logging.info("Classification request processed successfully")
 
     model, messages, image_url, classification_request = classification_data
     response, error = send_classification_request(model, image_url, classification_request)
@@ -135,29 +145,35 @@ def classify_image(request):  # Add 'request' parameter here
             # Parse the JSON string from the API response
             import json
             result = json.loads(response.choices[0].message.content)
+            logging.info(f"Result: {result}")
             reasoning = result.get('reasoning', '')
             classification_result = result.get('classification', '')
+            logging.info(f"Classification result: {classification_result}")
+            logging.info(f"Reasoning: {reasoning}")
 
-            # Firestore document handling
-            doc_ref = db.collection('image_classifications').document(image_url)
-            doc = doc_ref.get()
-            if doc.exists:
-                doc_ref.update({
-                    'counter': firestore.Increment(1),
-                    'last_classified': firestore.SERVER_TIMESTAMP,
-                    'classification': classification_result,
-                    'reasoning': reasoning
-                })
-                logging.info(f"Updated existing document for URL {image_url}")
-            else:
-                doc_ref.set({
-                    'url': image_url,
-                    'classification': classification_result,
-                    'reasoning': reasoning,
-                    'counter': 1,
-                    'created_at': firestore.SERVER_TIMESTAMP
-                })
-                logging.info(f"Created new document for URL {image_url}")
+            try:
+                # Firestore document handling
+                doc_ref = db.collection('image_classifications').document(image_url)
+                doc = doc_ref.get()
+                if doc.exists:
+                    doc_ref.update({
+                        'counter': firestore.Increment(1),
+                        'last_classified': firestore.SERVER_TIMESTAMP,
+                        'classification': classification_result,
+                        'reasoning': reasoning
+                    })
+                    logging.info(f"Updated existing document for URL {image_url}")
+                else:
+                    doc_ref.set({
+                        'url': image_url,
+                        'classification': classification_result,
+                        'reasoning': reasoning,
+                        'counter': 1,
+                        'created_at': firestore.SERVER_TIMESTAMP
+                    })
+                    logging.info(f"Created new document for URL {image_url}")
+            except Exception as e:
+                logging.error(f"Failed to update or create document: {str(e)}")
         else:
             logging.error("No content found in response")
             return jsonify({"error": "No classification result found"}), 500
