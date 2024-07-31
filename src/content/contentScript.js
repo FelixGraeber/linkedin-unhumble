@@ -27,16 +27,30 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         }
     }
 
-    async function modifyLinkedInPosts() {    
-        console.log("In modifyLinkedInPosts, using prefix:", prefix);
-
-        const textViewElements = document.querySelectorAll('span.text-view-model');
+    async function modifyLinkedInPosts() {
+        const textViewElements = document.querySelectorAll(`
+            .comments-comment-entity,
+            .update-components-actor__description,
+            .update-components-text.update-components-update-v2__commentary,
+            .update-components-article__title,
+            .update-components-article__subtitle-ellipsis,
+            .comments-comment-item__main-content.feed-shared-main-content--comment,
+            .comments-comment-meta__description-subtitle
+        `);
+        // console.log("Found", textViewElements.length, "text view elements");
+        // const foundElements = Array.from(textViewElements);
+        // console.log("Found elements:", foundElements);
         textViewElements.forEach(textViewElement => {
             if (processedTextElements.has(textViewElement)) return;
 
             const postText = textViewElement.innerText.toLowerCase();
-            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                textViewElement.innerText = prefix + textViewElement.innerText;
+
+            // Check if any filter word is in the post text
+            const matchedWord = filterWords.find(word => postText.includes(word.toLowerCase()));
+            
+            if (matchedWord && !textViewElement.classList.contains('modified')) {
+                console.log(`Matched filter word: "${matchedWord}" in post:`, postText);
+                textViewElement.innerText = prefix.repeat(13) + '\n' + textViewElement.innerText;
                 textViewElement.style.color = "#ebe7e7";
                 textViewElement.classList.add('modified');
                 textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
@@ -161,11 +175,16 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     function setupMutationObserver() {
         let observer = new MutationObserver((mutations) => {
-            mutations.forEach((mutation) => {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0 && !mutation.target.classList.contains('modified')) {
-                    modifyLinkedInContent();
+            let shouldModify = false;
+            for (let mutation of mutations) {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    shouldModify = true;
+                    break;
                 }
-            });
+            }
+            if (shouldModify) {
+                modifyLinkedInContent();
+            }
         });
         const targetNode = document.querySelector('#main-feed') || document.body;
         observer.observe(targetNode, { childList: true, subtree: true });

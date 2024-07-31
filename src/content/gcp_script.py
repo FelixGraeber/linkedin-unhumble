@@ -16,9 +16,11 @@ db = firestore.Client()
 
 def parse_request_data(request):
     """Parse and validate request data."""
+    logging.info(f"Received request data: {request.get_data()}")
     data = request.get_json()
     if not data:
         return None, "No JSON payload provided"
+    logging.info(f"Parsed JSON data: {data}")
     messages = data.get('data', {}).get('messages', [])
     if not messages:
         return None, "No messages found in payload"
