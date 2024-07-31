@@ -4,14 +4,45 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     const processedImages = new Set();
     const imagesAwaitingClassification = new Map();
     const processedTextElements = new Set();
+
+    // Load storage data at the beginning
+    console.log("Starting to load storage data...");
+    const filterWords = await loadStorageData('filterWords');
+    console.log("Loaded filterWords:", filterWords);
+    const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
+    console.log("Loaded filterWordsPrefix:", filterWordsPrefix);
+
+    // Select the prefix once at the beginning
+    const prefix = selectPrefix(filterWordsPrefix);
+    console.log("Selected prefix:", prefix);
+
     setupMutationObserver();
 
-    const filterWords = await loadStorageData('filterWords');
-    const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
+    function selectPrefix(filterWordsPrefix) {
+        switch (filterWordsPrefix) {
+            case 'humbled': return '😌';
+            case 'clown': return '🤡';
+            case 'poop': return '💩';
+            default: return '';
+        }
+    }
 
-    async function modifyLinkedInContent() {
-        await modifyLinkedInPosts();
-        await classifyAndModifyImages();
+    async function modifyLinkedInPosts() {    
+        console.log("In modifyLinkedInPosts, using prefix:", prefix);
+
+        const textViewElements = document.querySelectorAll('span.text-view-model');
+        textViewElements.forEach(textViewElement => {
+            if (processedTextElements.has(textViewElement)) return;
+
+            const postText = textViewElement.innerText.toLowerCase();
+            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
+                textViewElement.innerText = prefix + textViewElement.innerText;
+                textViewElement.style.color = "#ebe7e7";
+                textViewElement.classList.add('modified');
+                textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
+                processedTextElements.add(textViewElement);
+            }
+        });
     }
 
     async function classifyAndModifyImages() {
@@ -117,48 +148,6 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         img.style.objectFit = "cover";
     }
 
-    async function modifyLinkedInPosts() {    
-    
-        let prefix = '';
-        const actualPrefix = filterWordsPrefix[0]; // Assuming it's always an array with at least one element
-
-        switch (actualPrefix) {
-            case 'humbled': prefix = '😌'; break;
-            case 'clown': prefix = '🤡'; break;
-            case 'poop': prefix = '💩'; break;
-        }
-    
-        const textViewElements = document.querySelectorAll('span.text-view-model');
-        textViewElements.forEach(textViewElement => {
-            if (processedTextElements.has(textViewElement)) return;
-
-            const postText = textViewElement.innerText.toLowerCase();
-            if (filterWords.some(word => postText.includes(word)) && !textViewElement.classList.contains('modified')) {
-                textViewElement.innerText = prefix.repeat(12) + "\n" + textViewElement.innerText;
-                textViewElement.style.color = "#ebe7e7";
-                textViewElement.classList.add('modified');
-                textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
-                processedTextElements.add(textViewElement);
-            }
-        });
-    }
-    // Helper function to load storage data
-    async function loadStorageData(key) {
-        return new Promise((resolve, reject) => {
-            chrome.storage.sync.get(key, function(data) {
-                if (chrome.runtime.lastError) {
-                    reject(chrome.runtime.lastError);
-                } else {
-                    let result = data[key];
-                    if (typeof result === 'string') {
-                        result = result.split(',').map(item => item.trim());
-                    }
-                    resolve(result);
-                }
-            });
-        });
-    }    
-
     function setupMutationObserver() {
         let observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -169,5 +158,33 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         });
         const targetNode = document.querySelector('#main-feed') || document.body;
         observer.observe(targetNode, { childList: true, subtree: true });
+    }
+    
+    async function loadStorageData(key) {
+        return new Promise((resolve, reject) => {
+            chrome.storage.sync.get(key, function(data) {
+                if (chrome.runtime.lastError) {
+                    console.error(`Error loading ${key}:`, chrome.runtime.lastError);
+                    reject(chrome.runtime.lastError);
+                } else {
+                    let result = data[key];
+                    console.log(`Loaded ${key}:`, result);
+                    if (key === 'filterWordsPrefix') {
+                        // For filterWordsPrefix, we expect a single string value
+                        resolve(result || '');
+                    } else if (typeof result === 'string') {
+                        // For other keys, split string into array if necessary
+                        resolve(result.split(',').map(item => item.trim()));
+                    } else {
+                        resolve(result || []);
+                    }
+                }
+            });
+        });
+    }    
+
+    async function modifyLinkedInContent() {
+        await modifyLinkedInPosts();
+        await classifyAndModifyImages();
     }
 })();
