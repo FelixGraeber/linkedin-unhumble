@@ -76,16 +76,26 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             const requestBody = createRequestBody(img.src);
             try {
                 console.debug("Sending image for classification", requestBody);
+                console.log("Setting image in imagesAwaitingClassification:", img.src);
                 imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
-                    if (response.content && response.content && response.content.length > 0) {
-                        const classificationText = response.content.find(content => content.type === "text").text;
+                    console.log("Received classification response:", response);
+                    if (response && response.classification) {
+                        console.log("Found valid content in response");
+                        const classificationText = response.classification;
+                        console.log("Classification text:", classificationText);
                         return applyImageOverlay(img, classificationText);
+                    } else {
+                        console.warn("No valid content found in response");
                     }
                 }).finally(() => {
+                    console.log("Removing image from imagesAwaitingClassification:", img.src);
                     imagesAwaitingClassification.delete(img.src); // Remove from temp store once processed
                 }));
+                console.log("Waiting for classification to complete for image:", img.src);
                 await imagesAwaitingClassification.get(img.src); // Wait for the classification to complete
+                console.log("Classification completed for image:", img.src);
             } catch (error) {
+                console.error("Error in classifyAndModifyImages:", error);
                 console.error("Error classifying image with the Cloud Function:", error);
             }
         }
@@ -169,6 +179,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             overlay.src = selectedImageUrl;
             setOverlayStyle(overlay, img);
             img.parentNode.insertBefore(overlay, img.nextSibling);
+            console.log("Overlay inserted:", overlay);
             overlay.style.transition = "opacity 2s"; // Set transition for opacity change
             overlay.style.opacity = 0; // Start with the overlay hidden
             setTimeout(() => overlay.style.opacity = 0.69, 2000); // Fade in the overlay over 2 seconds to the final opacity from settings
@@ -193,6 +204,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         overlay.style.opacity = 0.69;
         img.parentNode.style.position = "relative";
         img.style.objectFit = "cover";
+        console.log("Overlay style applied:", overlay.style);
     }
 
     function setupMutationObserver() {

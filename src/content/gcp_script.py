@@ -1,5 +1,6 @@
 import os
 import logging
+import flask
 from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from openai import OpenAI
@@ -14,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 
 # Initialize Flask app
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://www.linkedin.com", "allow_headers": "*", "methods": "*"}})
+CORS(app, resources={r"/*": {"origins": "*", "allow_headers": "*", "methods": "*"}})
 
 # Initialize Firestore (but don't fail if it's not available)
 try:
@@ -147,7 +148,7 @@ def update_firestore(image_url, classification_result, reasoning):
         logging.error(f"Failed to update or create Firestore document: {str(e)}")
 
 def add_cors_headers(response):
-    response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
+    response.headers.add('Access-Control-Allow-Origin', '*')
     response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
     response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
     return response
@@ -157,18 +158,26 @@ def cors_enabled(f):
     def decorated_function(*args, **kwargs):
         if request.method == 'OPTIONS':
             response = make_response()
-            response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
+            response.headers.add('Access-Control-Allow-Origin', '*')
             response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
             response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
             return response
-        return add_cors_headers(f(*args, **kwargs))
+        result = f(*args, **kwargs)
+        if isinstance(result, tuple):
+            response = make_response(result[0], result[1])
+        else:
+            response = make_response(result)
+        return add_cors_headers(response)
     return decorated_function
 
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
 @cors_enabled
-def classify_image(self):
-    logging.info("Received classify_image request", request.get_data())
+def classify_image(request=None):
+    logging.info("Received classify_image request")
     
+    if request is None:
+        request = flask.request
+
     if request.method == 'OPTIONS':
         return make_response()
 
@@ -203,6 +212,11 @@ def classify_image(self):
             logging.info(f"Classification result: {classification_result}")
             logging.info(f"Reasoning: {reasoning}")
 
+            # Truncate reasoning if it's too long
+            max_reasoning_length = 1000  # Adjust this value as needed
+            if len(reasoning) > max_reasoning_length:
+                reasoning = reasoning[:max_reasoning_length] + "... (truncated)"
+
             # Update Firestore (optional)
             update_firestore(image_url, classification_result, reasoning)
         else:
@@ -215,9 +229,9 @@ def classify_image(self):
     response_dict = {
         "url": image_url,
         "classification": classification_result,
-        "reasoning": reasoning
     }
     logging.info(f"Response successfully processed: {response_dict}")
+    
     return jsonify(response_dict), 200
 
 @app.errorhandler(Exception)

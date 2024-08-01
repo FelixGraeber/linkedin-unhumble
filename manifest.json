@@ -22,7 +22,11 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["src/content/modifyText.js", "src/content/modifyImages.js"],
+      "resources": [
+        "src/content/modifyText.js",
+        "src/content/modifyImages.js",
+        "assets/dog.gif"
+      ],
       "matches": ["https://*.linkedin.com/*"]
     }
   ],
