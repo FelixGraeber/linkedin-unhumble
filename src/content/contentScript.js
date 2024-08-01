@@ -25,7 +25,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     const prefix = memoizedSelectPrefix(filterWordsPrefix);
     console.log("Selected prefix:", prefix);
 
-    setupIntersectionObserver();
+    // Set up mutation observer to detect new content
+    setupMutationObserver();
 
     function selectPrefix(filterWordsPrefix) {
         switch (filterWordsPrefix) {
@@ -155,17 +156,23 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     async function applyImageOverlay(img, classification) {
         if (classification === "selfpromotional_image") {
-            console.debug("Applying image overlay for selfie for image: ", img.src);
-            const selectedImageUrl = await getSelectedImageUrl();
-            let overlay = document.createElement('img');
-            overlay.src = selectedImageUrl;
-            setOverlayStyle(overlay, img);
-            img.parentNode.insertBefore(overlay, img.nextSibling);
-            console.log("Overlay inserted:", overlay);
-            overlay.style.transition = "opacity 2s"; // Set transition for opacity change
-            overlay.style.opacity = 0; // Start with the overlay hidden
-            setTimeout(() => overlay.style.opacity = 0.69, 2000); // Fade in the overlay over 2 seconds to the final opacity from settings
-            overlay.addEventListener('click', () => overlay.remove());
+            requestAnimationFrame(async () => {
+                const selectedImageUrl = await getSelectedImageUrl();
+                let overlay = document.createElement('img');
+                overlay.src = selectedImageUrl;
+                setOverlayStyle(overlay, img);
+                img.parentNode.insertBefore(overlay, img.nextSibling);
+                requestAnimationFrame(() => {
+                    overlay.style.transition = "opacity 2s";
+                    overlay.style.opacity = 0;
+                    setTimeout(() => {
+                        requestAnimationFrame(() => {
+                            overlay.style.opacity = 0.69;
+                        });
+                    }, 2000);
+                });
+                overlay.addEventListener('click', () => overlay.remove());
+            });
         }
     }
 
@@ -201,16 +208,15 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         };
     }
 
-    function setupIntersectionObserver() {
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    modifyLinkedInContent();
-                }
-            });
-        }, { rootMargin: '100px' });
-
-        observer.observe(document.querySelector('#main-feed') || document.body);
+    function setupMutationObserver() {
+        const debouncedModify = debounce(modifyLinkedInContent, 250);
+        let observer = new MutationObserver((mutations) => {
+            if (mutations.some(mutation => mutation.type === 'childList' && mutation.addedNodes.length > 0)) {
+                debouncedModify();
+            }
+        });
+        const targetNode = document.querySelector('#main-feed') || document.body;
+        observer.observe(targetNode, { childList: true, subtree: true });
     }
     
     async function loadStorageData(key) {
