@@ -118,8 +118,8 @@ def send_classification_request(model, image_url, classification_request):
     # This line should never be reached, but just in case:
     return None, "Unexpected error in send_classification_request"
 
-def update_firestore(image_url, classification_result, reasoning):
-    """Update Firestore with classification results (optional)."""
+def update_firestore(image_url, classification_result, reasoning, prompt_tokens, completion_tokens, total_tokens):
+    """Update Firestore with classification results and token usage."""
     if not db:
         logging.info("Firestore is not initialized. Skipping database update.")
         return
@@ -135,7 +135,10 @@ def update_firestore(image_url, classification_result, reasoning):
                 'counter': firestore.Increment(1),
                 'last_classified': firestore.SERVER_TIMESTAMP,
                 'classification': classification_result,
-                'reasoning': reasoning
+                'reasoning': reasoning,
+                'prompt_tokens': prompt_tokens,
+                'completion_tokens': completion_tokens,
+                'total_tokens': total_tokens
             })
             logging.info(f"Updated existing document for URL {image_url}")
         else:
@@ -144,9 +147,12 @@ def update_firestore(image_url, classification_result, reasoning):
                 'classification': classification_result,
                 'reasoning': reasoning,
                 'counter': 1,
-                'created_at': firestore.SERVER_TIMESTAMP
+                'created_at': firestore.SERVER_TIMESTAMP,
+                'prompt_tokens': prompt_tokens,
+                'completion_tokens': completion_tokens,
+                'total_tokens': total_tokens
             })
-            logging.info(f"Created new document for URL {image_url}")
+            logging.info(f"Created new firebase document for URL {image_url}")
     except Exception as e:
         logging.error(f"Failed to update or create Firestore document: {str(e)}")
 
@@ -220,8 +226,13 @@ def classify_image(request=None):
             if len(reasoning) > max_reasoning_length:
                 reasoning = reasoning[:max_reasoning_length] + "... (truncated)"
 
-            # Update Firestore (optional)
-            update_firestore(image_url, classification_result, reasoning)
+            # Get token usage
+            prompt_tokens = response.usage.prompt_tokens
+            completion_tokens = response.usage.completion_tokens
+            total_tokens = response.usage.total_tokens
+
+            # Update Firestore with token usage
+            update_firestore(image_url, classification_result, reasoning, prompt_tokens, completion_tokens, total_tokens)
         else:
             logging.error("No content found in response")
             return jsonify({"error": "No classification result found"}), 500

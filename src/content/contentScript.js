@@ -1,4 +1,13 @@
-console.log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
+// Add this at the top of your script
+const DEBUG = false; // Set to true for debugging, false for production
+
+function log(...args) {
+    if (DEBUG) {
+        console.log(...args);
+    }
+}
+
+log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
 
 (async function main() {
     const processedImages = new Set();
@@ -6,11 +15,11 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     const processedTextElements = new Set();
 
     // Load storage data at the beginning
-    console.log("Starting to load storage data...");
+    log("Starting to load storage data...");
     const filterWords = await loadStorageData('filterWords');
-    console.log("Loaded filterWords:", filterWords);
+    log("Loaded filterWords:", filterWords);
     const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
-    console.log("Loaded filterWordsPrefix:", filterWordsPrefix);
+    log("Loaded filterWordsPrefix:", filterWordsPrefix);
 
     // Select the prefix once at the beginning
     const memoizedSelectPrefix = (() => {
@@ -23,7 +32,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         };
     })();
     const prefix = memoizedSelectPrefix(filterWordsPrefix);
-    console.log("Selected prefix:", prefix);
+    log("Selected prefix:", prefix);
 
     // Set up mutation observer to detect new content
     setupMutationObserver();
@@ -57,7 +66,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             const matchedWord = Array.from(filterWordsSet).find(word => postText.includes(word));
             
             if (matchedWord && !textViewElement.classList.contains('modified')) {
-                console.log(`Matched filter word: "${matchedWord}" in post:`, postText);
+                log(`Matched filter word: "${matchedWord}" in post:`, postText);
                 textViewElement.innerText = prefix.repeat(13) + '\n' + textViewElement.innerText;
                 textViewElement.style.color = "#ebe7e7";
                 textViewElement.classList.add('modified');
@@ -72,7 +81,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100)
             .filter(img => !processedImages.has(img.src) && !imagesAwaitingClassification.has(img.src));
 
-        console.debug("Filtered Images:", selectedImages.length);
+        log("Filtered Images:", selectedImages.length);
 
         const classificationPromises = selectedImages.map(async (img) => {
             processedImages.add(img.src);
@@ -85,7 +94,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                     await applyImageOverlay(img, response.classification);
                 }
             } catch (error) {
-                console.error("Error classifying image:", error);
+                log("Error classifying image:", error);
             } finally {
                 imagesAwaitingClassification.delete(img.src);
             }
@@ -96,10 +105,10 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
 
     function createRequestBody(imageSrc) {
         if (!imageSrc) {
-            console.error("No image source provided to createRequestBody");
+            log("No image source provided to createRequestBody");
             return null;
         }
-        console.debug("Creating request body for image:", imageSrc);
+        log("Creating request body for image:", imageSrc);
         const requestBody = {
             data: {
                 model: "gpt-4o-mini",
@@ -121,13 +130,15 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             },
             max_tokens: 300
         };
-        console.debug("Created request body:", JSON.stringify(requestBody, null, 2));
+        log("Created request body:", JSON.stringify(requestBody, null, 2));
         return requestBody;
     }
 
     async function fetchImageClassification(requestBody) {
         try {
-            console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
+            if (DEBUG) {
+                console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
+            }
             
             const response = await fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', {
                 method: 'POST',
@@ -139,18 +150,20 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 body: JSON.stringify(requestBody)
             });
 
-            console.log("Response status:", response.status);
-            console.log("Response headers:", JSON.stringify(Object.fromEntries(response.headers), null, 2));
+            if (DEBUG) {
+                console.log("Response status:", response.status);
+                console.log("Response headers:", JSON.stringify(Object.fromEntries(response.headers), null, 2));
+            }
 
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
-            console.log("Parsed response for image classification:", data);
+            log("Parsed response for image classification:", data);
             return data;
         } catch (error) {
-            console.error("Error in fetchImageClassification:", error);
+            log("Error in fetchImageClassification:", error);
             throw error;
         }
     }
@@ -194,7 +207,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         overlay.style.opacity = 0.69;
         img.parentNode.style.position = "relative";
         img.style.objectFit = "cover";
-        console.log("Overlay style applied:", overlay.style);
+        log("Overlay style applied:", overlay.style);
     }
 
     function debounce(func, wait) {
@@ -224,11 +237,11 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         return new Promise((resolve, reject) => {
             chrome.storage.sync.get(key, function(data) {
                 if (chrome.runtime.lastError) {
-                    console.error(`Error loading ${key}:`, chrome.runtime.lastError);
+                    log(`Error loading ${key}:`, chrome.runtime.lastError);
                     reject(chrome.runtime.lastError);
                 } else {
                     let result = data[key];
-                    console.log(`Loaded ${key}:`, result);
+                    log(`Loaded ${key}:`, result);
                     if (key === 'filterWordsPrefix') {
                         // For filterWordsPrefix, we expect a single string value
                         resolve(result || '');
