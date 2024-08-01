@@ -13,7 +13,16 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     console.log("Loaded filterWordsPrefix:", filterWordsPrefix);
 
     // Select the prefix once at the beginning
-    const prefix = selectPrefix(filterWordsPrefix);
+    const memoizedSelectPrefix = (() => {
+        const cache = new Map();
+        return (filterWordsPrefix) => {
+            if (!cache.has(filterWordsPrefix)) {
+                cache.set(filterWordsPrefix, selectPrefix(filterWordsPrefix));
+            }
+            return cache.get(filterWordsPrefix);
+        };
+    })();
+    const prefix = memoizedSelectPrefix(filterWordsPrefix);
     console.log("Selected prefix:", prefix);
 
     setupMutationObserver();
@@ -37,16 +46,14 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
             .comments-comment-item__main-content.feed-shared-main-content--comment,
             .comments-comment-meta__description-subtitle
         `);
-        // console.log("Found", textViewElements.length, "text view elements");
-        // const foundElements = Array.from(textViewElements);
-        // console.log("Found elements:", foundElements);
-        textViewElements.forEach(textViewElement => {
-            if (processedTextElements.has(textViewElement)) return;
+
+        const filterWordsSet = new Set(filterWords.map(word => word.toLowerCase()));
+
+        for (const textViewElement of textViewElements) {
+            if (processedTextElements.has(textViewElement)) continue;
 
             const postText = textViewElement.innerText.toLowerCase();
-
-            // Check if any filter word is in the post text
-            const matchedWord = filterWords.find(word => postText.includes(word.toLowerCase()));
+            const matchedWord = Array.from(filterWordsSet).find(word => postText.includes(word));
             
             if (matchedWord && !textViewElement.classList.contains('modified')) {
                 console.log(`Matched filter word: "${matchedWord}" in post:`, postText);
@@ -56,49 +63,34 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
                 processedTextElements.add(textViewElement);
             }
-        });
+        }
     }
 
     async function classifyAndModifyImages() {
         const selectedImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
-            .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100);
+            .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100)
+            .filter(img => !processedImages.has(img.src) && !imagesAwaitingClassification.has(img.src));
 
         console.debug("Filtered Images:", selectedImages.length);
-        for (let img of selectedImages) {
-            if (processedImages.has(img.src) || imagesAwaitingClassification.has(img.src)) {
-                // console.debug(`Image already processed or awaiting classification: ${img.src}`);
-                continue;
-            }
-            console.debug(`Processing image: ${img.src}`);
-            processedImages.add(img.src);
-            console.debug("Processed images:", processedImages);
 
+        const classificationPromises = selectedImages.map(async (img) => {
+            processedImages.add(img.src);
             const requestBody = createRequestBody(img.src);
             try {
-                console.debug("Sending image for classification", requestBody);
-                console.log("Setting image in imagesAwaitingClassification:", img.src);
-                imagesAwaitingClassification.set(img.src, fetchImageClassification(requestBody).then(response => {
-                    console.log("Received classification response:", response);
-                    if (response && response.classification) {
-                        console.log("Found valid content in response");
-                        const classificationText = response.classification;
-                        console.log("Classification text:", classificationText);
-                        return applyImageOverlay(img, classificationText);
-                    } else {
-                        console.warn("No valid content found in response");
-                    }
-                }).finally(() => {
-                    console.log("Removing image from imagesAwaitingClassification:", img.src);
-                    imagesAwaitingClassification.delete(img.src); // Remove from temp store once processed
-                }));
-                console.log("Waiting for classification to complete for image:", img.src);
-                await imagesAwaitingClassification.get(img.src); // Wait for the classification to complete
-                console.log("Classification completed for image:", img.src);
+                const classificationPromise = fetchImageClassification(requestBody);
+                imagesAwaitingClassification.set(img.src, classificationPromise);
+                const response = await classificationPromise;
+                if (response && response.classification) {
+                    await applyImageOverlay(img, response.classification);
+                }
             } catch (error) {
-                console.error("Error in classifyAndModifyImages:", error);
-                console.error("Error classifying image with the Cloud Function:", error);
+                console.error("Error classifying image:", error);
+            } finally {
+                imagesAwaitingClassification.delete(img.src);
             }
-        }
+        });
+
+        await Promise.all(classificationPromises);
     }
 
     function createRequestBody(imageSrc) {
@@ -152,17 +144,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const rawText = await response.text();
-            console.log("Raw response:", rawText);
-
-            let data;
-            try {
-                data = JSON.parse(rawText);
-            } catch (parseError) {
-                console.error("Failed to parse response as JSON:", parseError);
-                throw new Error("Invalid JSON response");
-            }
-
+            const data = await response.json();
             console.log("Parsed response for image classification:", data);
             return data;
         } catch (error) {
@@ -207,17 +189,23 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         console.log("Overlay style applied:", overlay.style);
     }
 
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
     function setupMutationObserver() {
+        const debouncedModify = debounce(modifyLinkedInContent, 250);
         let observer = new MutationObserver((mutations) => {
-            let shouldModify = false;
-            for (let mutation of mutations) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                    shouldModify = true;
-                    break;
-                }
-            }
-            if (shouldModify) {
-                modifyLinkedInContent();
+            if (mutations.some(mutation => mutation.type === 'childList' && mutation.addedNodes.length > 0)) {
+                debouncedModify();
             }
         });
         const targetNode = document.querySelector('#main-feed') || document.body;
