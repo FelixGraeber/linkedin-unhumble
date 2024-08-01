@@ -101,19 +101,21 @@ def send_classification_request(model, image_url, classification_request):
             )
             logging.info("Classification request sent successfully, response: %s" % response)
             return response, None
-        except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 429:
-                logging.warning(f"Rate limit exceeded, retrying in {backoff_time} seconds...")
-                time.sleep(backoff_time)
-                backoff_time *= 2  # Exponential backoff
+        except Exception as e:
+            if hasattr(e, 'response') and e.response.status_code == 429:
+                if attempt < max_attempts - 1:
+                    logging.warning(f"Rate limit exceeded, retrying in {backoff_time} seconds...")
+                    time.sleep(backoff_time)
+                    backoff_time *= 2  # Exponential backoff
+                else:
+                    logging.error(f"Max attempts reached, failed to send classification request.")
+                    return None, "Max attempts reached, failed to send classification request."
             else:
                 logging.error(f"Failed to send classification request to OpenAI API: {str(e)}")
                 return None, str(e)
-        except Exception as e:
-            logging.error(f"Failed to send classification request to OpenAI API: {str(e)}")
-            return None, str(e)
-    logging.error("Max attempts reached, failed to send classification request.")
-    return None, "Max attempts reached, failed to send classification request."
+    
+    # This line should never be reached, but just in case:
+    return None, "Unexpected error in send_classification_request"
 
 def update_firestore(image_url, classification_result, reasoning):
     """Update Firestore with classification results (optional)."""
