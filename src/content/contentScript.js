@@ -111,7 +111,8 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
                             {
                                 type: "image_url",
                                 image_url: {
-                                    url: imageSrc
+                                    url: imageSrc,
+                                    detail: "low"
                                 }
                             }
                         ]
