@@ -92,7 +92,8 @@ def send_classification_request(model, image_url, classification_request):
                                 "type": "image_url",
                                 "image_url": {
                                     "url": image_url,
-                                },
+                                    "detail": "low"
+                                }
                             }
                         ],
                     }
