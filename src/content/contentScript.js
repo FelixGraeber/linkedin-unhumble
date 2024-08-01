@@ -25,7 +25,7 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
     const prefix = memoizedSelectPrefix(filterWordsPrefix);
     console.log("Selected prefix:", prefix);
 
-    setupMutationObserver();
+    setupIntersectionObserver();
 
     function selectPrefix(filterWordsPrefix) {
         switch (filterWordsPrefix) {
@@ -201,15 +201,16 @@ console.log("LinkedIn Feed Filter content script injected. Starting to modify po
         };
     }
 
-    function setupMutationObserver() {
-        const debouncedModify = debounce(modifyLinkedInContent, 250);
-        let observer = new MutationObserver((mutations) => {
-            if (mutations.some(mutation => mutation.type === 'childList' && mutation.addedNodes.length > 0)) {
-                debouncedModify();
-            }
-        });
-        const targetNode = document.querySelector('#main-feed') || document.body;
-        observer.observe(targetNode, { childList: true, subtree: true });
+    function setupIntersectionObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    modifyLinkedInContent();
+                }
+            });
+        }, { rootMargin: '100px' });
+
+        observer.observe(document.querySelector('#main-feed') || document.body);
     }
     
     async function loadStorageData(key) {
