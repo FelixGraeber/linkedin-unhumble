@@ -7,6 +7,7 @@ import requests
 import time
 from google.cloud import firestore
 import hashlib
+from functools import wraps
 
 # Set the logging level at the beginning of your script
 logging.basicConfig(level=logging.INFO)
@@ -145,17 +146,31 @@ def update_firestore(image_url, classification_result, reasoning):
     except Exception as e:
         logging.error(f"Failed to update or create Firestore document: {str(e)}")
 
+def add_cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
+def cors_enabled(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if request.method == 'OPTIONS':
+            response = make_response()
+            response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
+            response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+            response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+            return response
+        return add_cors_headers(f(*args, **kwargs))
+    return decorated_function
+
 @app.route('/classify_image', methods=['POST', 'OPTIONS'])
-def classify_image(request):
+@cors_enabled
+def classify_image(self):
     logging.info("Received classify_image request", request.get_data())
     
     if request.method == 'OPTIONS':
-        logging.info("Handling OPTIONS request")
-        response = make_response()
-        response.headers.add('Access-Control-Allow-Origin', 'https://www.linkedin.com')
-        response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
-        response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
-        return response
+        return make_response()
 
     data, error = parse_request_data(request)
     if error:
@@ -210,7 +225,7 @@ def handle_unexpected_error(error):
     """Global error handler."""
     response = jsonify({'message': 'An unexpected error occurred', 'details': str(error)})
     response.status_code = 500
-    return response
+    return add_cors_headers(response)
 
 def main():
     logging.info("Received request at main entry point.")
