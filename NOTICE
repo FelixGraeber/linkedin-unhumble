@@ -1,0 +1,42 @@
+LinkedIn unhumbled
+Copyright (c) 2026 Felix Gräber and contributors
+
+This product includes software developed by third parties, listed below.
+
+================================================================================
+MediaPipe Tasks Vision (vendored under src/vendor/mediapipe/)
+================================================================================
+
+@mediapipe/tasks-vision, version 0.10.35
+Copyright 2019-2025 The MediaPipe Authors
+Source:  https://github.com/google-ai-edge/mediapipe
+NPM:     https://www.npmjs.com/package/@mediapipe/tasks-vision
+
+Licensed under the Apache License, Version 2.0.
+See src/vendor/mediapipe/LICENSE for the full license text.
+
+Vendored files:
+  src/vendor/mediapipe/vision_bundle.mjs
+  src/vendor/mediapipe/wasm/vision_wasm_internal.js
+  src/vendor/mediapipe/wasm/vision_wasm_internal.wasm
+
+================================================================================
+BlazeFace Short-Range Face Detection Model
+================================================================================
+
+blaze_face_short_range.tflite
+Copyright 2023 The MediaPipe Authors
+Source:  https://storage.googleapis.com/mediapipe-models/face_detector/
+         blaze_face_short_range/float16/1/blaze_face_short_range.tflite
+Card:    https://storage.googleapis.com/mediapipe-assets/MediaPipe%20BlazeFace
+         %20Model%20Card%20%28Short%20Range%29.pdf
+
+Licensed under the Apache License, Version 2.0.
+
+Bundled at:
+  assets/models/blaze_face_short_range.tflite
+
+================================================================================
+
+The Apache License, Version 2.0 is reproduced verbatim at
+src/vendor/mediapipe/LICENSE.
