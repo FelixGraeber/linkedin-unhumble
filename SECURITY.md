@@ -1,59 +1,50 @@
-# Security
+# security
 
-## Reporting a vulnerability
+## reporting
 
-Please **do not** file a public GitHub issue for security problems.
+don't open a public issue for vulns. use [github private vulnerability reports](https://github.com/FelixGraeber/linkedin-unhumble/security/advisories/new) or email the maintainer. expect a reply within a few days.
 
-Email the maintainer directly or use [GitHub private vulnerability reports](https://github.com/FelixGraeber/linkedin-unhumble/security/advisories/new). You should expect an acknowledgement within a few days.
+include the version (from `manifest.json`) or commit hash, repro steps, and your impact assessment if you have one.
 
-When reporting, include:
-- The affected version (`manifest.json` `version` field, or commit hash)
-- Reproduction steps
-- Impact assessment if you have one
+## threat model
 
-## Threat model
+it's a content extension running in chrome's mv3 sandbox.
 
-LinkedIn unhumbled is a content-modifying browser extension. Its threat model is shaped by Chrome's Manifest V3 sandbox.
+- credentials and cookies: never read. no `cookies` permission.
+- browsing history: not collected, not transmitted. no `history`/`tabs`/analytics.
+- image urls from your feed: passed through the offscreen doc for face detection. they don't leave your device. the only network fetch is to `media.licdn.com`, linkedin's own cdn.
+- preferences in `chrome.storage.sync`: filter words, dog choice, prefix emoji. no pii.
+- vendored ml model + wasm: committed in-tree; integrity is whatever git and the web store guarantee.
 
-| Asset | Concern | Mitigation |
-|---|---|---|
-| User credentials, cookies | Extension never reads them | Content script only mutates DOM in the isolated world; no `cookies` permission requested |
-| User browsing history | Extension does not collect or transmit it | No `history`, `tabs`, or analytics; `webNavigation`/`tabs` permissions are not requested |
-| Image URLs from the user's feed | Sent to the offscreen document for face detection | URLs never leave the user's device — no network egress to anywhere except `media.licdn.com` (LinkedIn's own image CDN) |
-| User preferences | Stored in `chrome.storage.sync` (Google account sync) | Limited to filter words, dog GIF choice, prefix emoji — no PII |
-| Vendored ML model + WASM | Could be tampered with at distribution | Files are committed in-tree; integrity is whatever the git hosting and Web Store packaging guarantee |
+## permissions
 
-## Permissions
+- `storage` — saves your prefs
+- `offscreen` — hosts the wasm face detector (service workers can't do that reliably)
+- `https://*.linkedin.com/*` — content script needs to run on linkedin
+- `https://*.licdn.com/*` — offscreen needs to fetch image bytes for detection
 
-| Permission | Why |
-|---|---|
-| `storage` | Persist user-selected filter words, prefix emoji, and dog GIF choice |
-| `offscreen` | Run MediaPipe WASM inference outside the service worker (service workers cannot host long-lived WASM modules reliably) |
-| `host_permissions: https://*.linkedin.com/*` | Run the content script on LinkedIn pages |
-| `host_permissions: https://*.licdn.com/*` | Allow the offscreen document to fetch a feed image for face detection |
+## csp
 
-## Content Security Policy
+`script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`.
 
-`extension_pages` CSP is `script-src 'self' 'wasm-unsafe-eval'; object-src 'self'`.
+`wasm-unsafe-eval` is required by mediapipe's emscripten loader. no remote scripts. no remote wasm. no `eval` of strings.
 
-`'wasm-unsafe-eval'` is required by MediaPipe's Emscripten-generated WebAssembly loader. We do **not** allow remote scripts, eval of strings, or remote WASM. All vendored WASM is bundled in the extension under `src/vendor/mediapipe/wasm/`.
+## what we don't do
 
-## What we do not do
+- no remote code execution
+- no telemetry, analytics, or crash reporting
+- no third-party network calls (the gpt-4o-mini cloud function was removed)
+- no cross-origin reads
+- no background tracking when linkedin is closed
 
-- No remote code execution. No `eval`, no `new Function`, no remote `<script>` injection.
-- No telemetry. No analytics. No crash reporting.
-- No third-party network calls. The cloud classifier (previously a Google Cloud Function calling OpenAI) was removed; classification is on-device.
-- No reading from other extension origins, no cross-origin DOM access.
-- No background tracking when LinkedIn is not open.
+## known limits
 
-## Known limitations
+- **wasm sandbox.** mediapipe's c++ runs in wasm. memory bugs are constrained, not eliminated. bump `@mediapipe/tasks-vision` periodically.
+- **dom selectors.** linkedin rotates css class names. selectors fall back to url patterns and `[role="listitem"]` but breakage happens.
+- **message origin.** mv3 message senders are implicitly the same extension; sender ids aren't validated because no external messages are accepted.
 
-- **WebAssembly memory unsafety.** MediaPipe's BlazeFace runs in a WASM sandbox. Within that sandbox, memory bugs in the bundled C++ are constrained but not eliminated. Updates to `@mediapipe/tasks-vision` should be picked up periodically.
-- **DOM-based selectors.** Content-script DOM manipulation depends on LinkedIn's HTML structure. LinkedIn periodically rotates CSS class names; selectors fall back to URL patterns and `[role="listitem"]` to stay robust, but breakage is possible.
-- **`chrome.runtime` message origin.** Within an MV3 extension, message senders are implicitly the same extension; we do not validate sender IDs because the worker accepts no external messages.
+## supply chain
 
-## Supply-chain note
+vendored `@mediapipe/tasks-vision@0.10.35` and `blaze_face_short_range.tflite` from google's mediapipe assets. both reproducibly downloadable. see [notice](NOTICE).
 
-Vendored: `@mediapipe/tasks-vision@0.10.35` and the `blaze_face_short_range.tflite` model from `storage.googleapis.com/mediapipe-models/...`. Both are reproducibly downloadable. See `NOTICE` for attribution.
-
-We do **not** use a CDN at runtime. The extension ships everything it needs; your browser does not phone home for assets.
+no runtime cdn. the extension ships everything; your browser doesn't phone home for assets.

@@ -1,91 +1,82 @@
-# Contributing
+# contributing
 
-Thanks for helping fix LinkedIn.
+thanks for helping fix linkedin.
 
-## Local development
+## dev setup
 
-The extension is plain JavaScript with vendored MediaPipe — no build step, no `node_modules`.
+plain js, no build step, no `node_modules`.
 
-1. Clone the repo.
-2. Open `chrome://extensions` in Chrome.
-3. Toggle **Developer mode** (top right).
-4. Click **Load unpacked** and pick this repository's root directory.
-5. Visit `linkedin.com/feed/` to test.
+1. clone the repo.
+2. open `chrome://extensions`.
+3. turn on developer mode.
+4. click load unpacked and pick the repo root.
+5. visit `linkedin.com/feed/`.
 
-After editing files:
-- Code changes take effect on the next page reload (or after pressing the **Reload** button on the extension card in `chrome://extensions`).
-- Manifest or vendored-asset changes require an extension reload.
+page reload picks up content-script edits. manifest or vendored-asset edits need an extension reload.
 
-## Debug logging
+## debug
 
-`src/content/contentScript.js` and `src/offscreen/offscreen.js` define `DEBUG`/`VERBOSE`-style flags at the top of each file. Flip them to `true` while developing. Default is silent in production.
+flip `DEBUG` in `src/content/contentScript.js` and `VERBOSE` in `src/offscreen/offscreen.js` to `true` while developing. silent in production.
 
-## Project layout
+## layout
 
 ```
-manifest.json                      MV3 manifest
+manifest.json                  mv3 manifest
 src/
-  background/background.js         Service worker: routes classify messages, owns LRU cache, owns offscreen doc lifecycle
-  content/contentScript.js         Runs on linkedin.com: finds post text + images, sends classify requests, applies overlays
-  offscreen/offscreen.{html,js}    Long-lived host for MediaPipe BlazeFace (service workers cannot host WASM reliably)
-  popup/                           Extension toolbar popup (links to settings)
-  settings/                        Options page
-  vendor/mediapipe/                Vendored @mediapipe/tasks-vision 0.10.35 (Apache 2.0; do not edit)
+  background/background.js     service worker — routes messages, lru cache, owns offscreen lifecycle
+  content/contentScript.js     runs on linkedin.com — finds posts + images, applies overlays
+  offscreen/offscreen.{html,js}  long-lived host for mediapipe blazeface
+  popup/                       toolbar popup
+  settings/                    options page
+  vendor/mediapipe/            vendored @mediapipe/tasks-vision 0.10.35 (don't edit)
 assets/
-  dog.gif, dog_static.png          Overlay assets
-  models/blaze_face_short_range.tflite   Bundled MediaPipe model (Apache 2.0)
-  icons/                           Extension icons
+  dog.gif, dog_static.png      overlay assets
+  models/blaze_face_short_range.tflite   bundled mediapipe model
+  icons/                       extension icons
 ```
 
-## Architecture
-
-A classification request flows:
+## flow
 
 ```
 linkedin.com page
    └─> content script (isolated world)
-         └─ chrome.runtime.sendMessage({type: 'classifyImage', url})
-              └─> service worker (background.js)
-                    ├─ LRU cache hit? return cached label
-                    └─ ensureOffscreen() then forward to offscreen
-                          └─> offscreen document (offscreen.js)
-                                ├─ getDetector() lazy-loads MediaPipe + BlazeFace once
-                                ├─ fetch(url) → blob → createImageBitmap
-                                ├─ detector.detect(bitmap)
-                                └─ reply with {ok, label, faces, largestArea, largestScore}
+         └─ chrome.runtime.sendMessage({type:'classifyImage', url})
+              └─> service worker
+                    ├─ lru cache hit? return cached
+                    └─ ensure offscreen, forward
+                          └─> offscreen
+                                ├─ load mediapipe + blazeface once
+                                ├─ fetch → imagebitmap → detect
+                                └─ reply {ok, label, faces, largestArea, largestScore}
 ```
 
-If the label is `selfpromotional_image`, the content script overlays the chosen dog asset on top of the original image.
+if label is `selfpromotional_image`, the content script overlays the dog.
 
-## Conventions
+## conventions
 
-- **No comments** unless they capture a non-obvious *why* (a hidden constraint, a workaround, an invariant). Don't narrate what the code does.
-- **No build step.** Keep the extension loadable as-is from a checkout.
-- **Vendored deps** live under `src/vendor/`. Do not edit them; bump versions explicitly and update `NOTICE`.
-- **Conventional commit prefixes**: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`. Subject under 72 characters.
-- **Atomic commits**: one concern per commit. Use `git add -- path1 path2` to stage explicitly.
+- no comments unless explaining a non-obvious *why*
+- no build step — keep the extension loadable as-is from a checkout
+- vendored deps in `src/vendor/`; don't edit, bump versions and update `notice`
+- conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`
+- atomic commits — one concern per commit
 
-## Testing
+## manual test
 
-There is no automated test suite (yet). Manual checklist:
+no automated suite yet:
 
-1. Load the unpacked extension on a fresh Chrome profile.
-2. Open `linkedin.com/feed/`. Confirm:
-   - Posts containing `humbled`, `proud`, `blessed`, or `thrilled` get a clown-emoji prefix and grey text.
-   - Single-person headshot images get the dog overlay (50% opacity, fade in over 2s).
-   - Group photos, charts, and screenshots are *not* overlaid.
-3. Scroll for ~30 seconds. Confirm the extension does not block scrolling or trigger ANRs.
-4. Open the Network panel; filter for `cloudfunctions.net` or any other non-LinkedIn origin. There should be zero matches from the extension.
+1. load unpacked on a clean chrome profile
+2. open `linkedin.com/feed/`. confirm:
+   - posts with `humbled`/`proud`/`blessed`/`thrilled` get the prefix and greyed text
+   - solo-headshot images get the dog overlay (50% opacity, fade in)
+   - group photos, charts, screenshots are not overlaid
+3. scroll for ~30s. no jank, no anrs.
+4. devtools network panel: filter for `cloudfunctions.net` or any non-linkedin origin. zero matches from the extension.
 
-## Building the Web Store zip
+## build the web store zip
 
 ```sh
 rm -f linkedin-unhumbled.zip && zip -r linkedin-unhumbled.zip . \
-  -x "*.git*" ".git/*" "*.zip" \
+  -x ".git/*" "*.git*" "*.zip" \
      "*.DS_Store" "*/.DS_Store" \
-     "assets/screenshots/*" \
-     "*.md" "LICENSE" "NOTICE" \
-     "src/vendor/mediapipe/LICENSE"
+     "assets/screenshots/*" "*.mov"
 ```
-
-(The `LICENSE` and `NOTICE` are excluded from the Web Store package because Chrome rejects extension uploads with non-essential text files at the root, but they remain in the repo.)
