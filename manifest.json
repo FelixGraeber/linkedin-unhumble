@@ -10,9 +10,9 @@
     "https://*.linkedin.com/*",
     "https://*.licdn.com/*"
   ],
-  "options_page": "./src/settings/settings.html",
+  "options_page": "src/settings/settings.html",
   "background": {
-    "service_worker": "./src/background/background.js"
+    "service_worker": "src/background/background.js"
   },
   "content_scripts": [
     {
@@ -34,12 +34,12 @@
     }
   ],
   "icons": {
-    "48": "./assets/icons/icon48.png",
-    "128": "./assets/icons/icon128.png"
+    "48": "assets/icons/icon48.png",
+    "128": "assets/icons/icon128.png"
   },
   "action": {
-    "default_icon": "./assets/icons/icon48.png",
-    "default_popup": "./src/popup/popup.html",
+    "default_icon": "assets/icons/icon48.png",
+    "default_popup": "src/popup/popup.html",
     "default_title": "LinkedIn unhumbled"
   },
   "content_security_policy": {
