@@ -47,9 +47,9 @@ function log(...args) {
 
             log(`Matched "${match}" in post:`, txt);
             el.innerText = prefix.repeat(13) + '\n' + el.innerText;
-            el.style.color = "#ebe7e7";
+            el.style.color = "#888";
             el.classList.add('modified');
-            el.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
+            el.querySelectorAll('a').forEach(link => link.style.color = "#666");
             processedTextElements.add(el);
         }
     }
