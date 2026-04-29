@@ -4,7 +4,7 @@
   "version": "421.0",
   "description": "Make LinkedIn Bearable Again! Inject clown emojis into 'humbled' and 'proud' posts and overlay cringe selfies with confused-dog.GIF",
   "permissions": [
-    "webNavigation", "scripting", "storage", "offscreen"
+    "storage", "offscreen"
   ],
   "host_permissions": [
     "https://*.linkedin.com/*",
