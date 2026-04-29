@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn unhumbled",
-  "version": "421.0",
+  "version": "422.0",
   "description": "Make LinkedIn Bearable Again! Inject clown emojis into 'humbled' and 'proud' posts and overlay cringe selfies with confused-dog.GIF",
   "permissions": [
     "storage", "offscreen"
@@ -24,11 +24,10 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/content/modifyText.js",
-        "src/content/modifyImages.js",
         "src/vendor/mediapipe/*",
         "src/vendor/mediapipe/wasm/*",
         "assets/dog.gif",
+        "assets/dog_static.png",
         "assets/models/*"
       ],
       "matches": ["https://*.linkedin.com/*"]
