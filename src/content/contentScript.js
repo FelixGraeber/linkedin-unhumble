@@ -1,5 +1,4 @@
-// Add this at the top of your script
-const DEBUG = false; // Set to true for debugging, false for production
+const DEBUG = true; // Set to true for debugging, false for production
 
 function log(...args) {
     if (DEBUG) {
@@ -77,21 +76,36 @@ log("LinkedIn Feed Filter content script injected. Starting to modify posts...")
     }
 
     async function classifyAndModifyImages() {
-        const selectedImages = Array.from(document.querySelectorAll('img.update-components-image__image'))
-            .filter(img => img.clientWidth >= 100 || img.clientHeight >= 100)
-            .filter(img => !processedImages.has(img.src) && !imagesAwaitingClassification.has(img.src));
+        const allMatches = Array.from(document.querySelectorAll(
+            'img[src*="/feedshare-shrink_"], img[src*="/image-shrink_"]'
+        ));
+        const sizeOk = allMatches.filter(img => img.clientWidth >= 100 || img.clientHeight >= 100);
+        const selectedImages = sizeOk.filter(img => !processedImages.has(img.src) && !imagesAwaitingClassification.has(img.src));
 
-        log("Filtered Images:", selectedImages.length);
+        log("ClassifyTick", JSON.stringify({
+            allMatches: allMatches.length,
+            sizeOk: sizeOk.length,
+            selected: selectedImages.length,
+            processed: processedImages.size,
+            inflight: imagesAwaitingClassification.size,
+        }));
 
         const classificationPromises = selectedImages.map(async (img) => {
             processedImages.add(img.src);
-            const requestBody = createRequestBody(img.src);
             try {
-                const classificationPromise = fetchImageClassification(requestBody);
+                const classificationPromise = chrome.runtime.sendMessage({
+                    type: 'classifyImage',
+                    url: img.src,
+                });
                 imagesAwaitingClassification.set(img.src, classificationPromise);
                 const response = await classificationPromise;
-                if (response && response.classification) {
-                    await applyImageOverlay(img, response.classification);
+                if (response && response.ok && response.label) {
+                    log("Classified", img.src, JSON.stringify(response));
+                    await applyImageOverlay(img, response.label);
+                } else if (response && !response.ok) {
+                    log("Classification error:", JSON.stringify(response));
+                } else {
+                    log("Unexpected response:", JSON.stringify(response));
                 }
             } catch (error) {
                 log("Error classifying image:", error);
@@ -101,71 +115,6 @@ log("LinkedIn Feed Filter content script injected. Starting to modify posts...")
         });
 
         await Promise.all(classificationPromises);
-    }
-
-    function createRequestBody(imageSrc) {
-        if (!imageSrc) {
-            log("No image source provided to createRequestBody");
-            return null;
-        }
-        log("Creating request body for image:", imageSrc);
-        const requestBody = {
-            data: {
-                model: "gpt-4o-mini",
-                messages: [
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: "ONLY RESPOND WITH THE CLASSIFICATION 'selfpromotional_image' OR 'other': You are an AI that detects self-promotional LinkedIn images. Classify the following image as either 'selfpromotional_image' (selfies, headshots of one person) or 'other' (no people, multiple people, not self-promotional)." },
-                            {
-                                type: "image_url",
-                                image_url: {
-                                    url: imageSrc,
-                                    detail: "low"
-                                }
-                            }
-                        ]
-                    }
-                ]
-            },
-            max_tokens: 300
-        };
-        log("Created request body:", JSON.stringify(requestBody, null, 2));
-        return requestBody;
-    }
-
-    async function fetchImageClassification(requestBody) {
-        try {
-            if (DEBUG) {
-                console.log("Sending request body:", JSON.stringify(requestBody, null, 2));
-            }
-            
-            const response = await fetch('https://us-central1-linkedin-unhumbled.cloudfunctions.net/linkedin-unhumbled/classify_image', {
-                method: 'POST',
-                mode: 'cors',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                },
-                body: JSON.stringify(requestBody)
-            });
-
-            if (DEBUG) {
-                console.log("Response status:", response.status);
-                console.log("Response headers:", JSON.stringify(Object.fromEntries(response.headers), null, 2));
-            }
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const data = await response.json();
-            log("Parsed response for image classification:", data);
-            return data;
-        } catch (error) {
-            log("Error in fetchImageClassification:", error);
-            throw error;
-        }
     }
 
     async function applyImageOverlay(img, classification) {
@@ -181,7 +130,7 @@ log("LinkedIn Feed Filter content script injected. Starting to modify posts...")
                     overlay.style.opacity = 0;
                     setTimeout(() => {
                         requestAnimationFrame(() => {
-                            overlay.style.opacity = 0.69;
+                            overlay.style.opacity = 0.5;
                         });
                     }, 2000);
                 });
@@ -197,14 +146,14 @@ log("LinkedIn Feed Filter content script injected. Starting to modify posts...")
                     'dog_gif': chrome.runtime.getURL("assets/dog.gif"),
                     'dog_static': chrome.runtime.getURL("assets/dog_static.png")
                 };
-                resolve(imageUrlMap[data.selectedImage || '']);
+                resolve(imageUrlMap[data.selectedImage] || imageUrlMap.dog_gif);
             });
         });
     }
     
     function setOverlayStyle(overlay, img) {
         overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
-        overlay.style.opacity = 0.69;
+        overlay.style.opacity = 0.5;
         img.parentNode.style.position = "relative";
         img.style.objectFit = "cover";
         log("Overlay style applied:", overlay.style);

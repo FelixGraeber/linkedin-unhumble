@@ -1,13 +1,14 @@
 {
   "manifest_version": 3,
   "name": "LinkedIn unhumbled",
-  "version": "420.69",
+  "version": "421.0",
   "description": "Make LinkedIn Bearable Again! Inject clown emojis into 'humbled' and 'proud' posts and overlay cringe selfies with confused-dog.GIF",
   "permissions": [
-    "webNavigation", "scripting", "storage"
+    "webNavigation", "scripting", "storage", "offscreen"
   ],
   "host_permissions": [
-    "*://*.linkedin.com/*"
+    "https://*.linkedin.com/*",
+    "https://*.licdn.com/*"
   ],
   "options_page": "./src/settings/settings.html",
   "background": {
@@ -25,7 +26,10 @@
       "resources": [
         "src/content/modifyText.js",
         "src/content/modifyImages.js",
-        "assets/dog.gif"
+        "src/vendor/mediapipe/*",
+        "src/vendor/mediapipe/wasm/*",
+        "assets/dog.gif",
+        "assets/models/*"
       ],
       "matches": ["https://*.linkedin.com/*"]
     }
@@ -40,6 +44,6 @@
     "default_title": "LinkedIn unhumbled"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
   }
 }
