@@ -1,1 +1,21 @@
-venv
+# Build artifact
+linkedin-unhumbled.zip
+*.zip
+
+# OS junk
+.DS_Store
+**/.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+
+# Python (legacy; cloud function source removed in commit 4be41fb)
+venv/
+__pycache__/
+*.pyc
+
+# Node (not used today, but reserve in case a build step is ever added)
+node_modules/
