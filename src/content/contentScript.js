@@ -1,209 +1,117 @@
-const DEBUG = true; // Set to true for debugging, false for production
+const DEBUG = false;
 
 function log(...args) {
-    if (DEBUG) {
-        console.log(...args);
-    }
+    if (DEBUG) console.log(...args);
 }
 
-log("LinkedIn Feed Filter content script injected. Starting to modify posts...");
-
 (async function main() {
+    const POST_TEXT_MIN_LENGTH = 60;
+    const DEFAULT_FILTER_WORDS = ['humbled', 'proud', 'blessed', 'thrilled'];
+    const DEFAULT_PREFIX = 'clown';
+    const PREFIX_EMOJI = { humbled: '😌', clown: '🤡', poop: '💩', none: '' };
+    const OVERLAY_ASSET = { dog_gif: 'assets/dog.gif', dog_static: 'assets/dog_static.png' };
+
     const processedImages = new Set();
-    const imagesAwaitingClassification = new Map();
     const processedTextElements = new Set();
 
-    // Load storage data at the beginning
-    log("Starting to load storage data...");
-    const filterWords = await loadStorageData('filterWords');
-    log("Loaded filterWords:", filterWords);
-    const filterWordsPrefix = await loadStorageData('filterWordsPrefix');
-    log("Loaded filterWordsPrefix:", filterWordsPrefix);
+    const stored = await chrome.storage.sync.get(['filterWords', 'filterWordsPrefix', 'selectedImage']);
 
-    // Select the prefix once at the beginning
-    const memoizedSelectPrefix = (() => {
-        const cache = new Map();
-        return (filterWordsPrefix) => {
-            if (!cache.has(filterWordsPrefix)) {
-                cache.set(filterWordsPrefix, selectPrefix(filterWordsPrefix));
-            }
-            return cache.get(filterWordsPrefix);
-        };
-    })();
-    const prefix = memoizedSelectPrefix(filterWordsPrefix);
-    log("Selected prefix:", prefix);
+    const parsedFilterWords = typeof stored.filterWords === 'string'
+        ? stored.filterWords.split(',').map(s => s.trim()).filter(Boolean)
+        : Array.isArray(stored.filterWords) ? stored.filterWords : [];
+    const filterWords = parsedFilterWords.length ? parsedFilterWords : DEFAULT_FILTER_WORDS;
+    const filterWordsSet = new Set(filterWords.map(w => w.toLowerCase()));
 
-    // Set up mutation observer to detect new content
+    const prefix = PREFIX_EMOJI[stored.filterWordsPrefix || DEFAULT_PREFIX] ?? '';
+    const overlayUrl = chrome.runtime.getURL(OVERLAY_ASSET[stored.selectedImage] || OVERLAY_ASSET.dog_gif);
+
+    log("Init", { filterWords, prefix, overlayUrl });
+
     setupMutationObserver();
 
-    function selectPrefix(filterWordsPrefix) {
-        switch (filterWordsPrefix) {
-            case 'humbled': return '😌';
-            case 'clown': return '🤡';
-            case 'poop': return '💩';
-            default: return '';
-        }
-    }
-
     async function modifyLinkedInPosts() {
-        const textViewElements = document.querySelectorAll(`
-            .comments-comment-entity,
-            .update-components-actor__description,
-            .update-components-text.update-components-update-v2__commentary,
-            .update-components-article__title,
-            .update-components-article__subtitle-ellipsis,
-            .comments-comment-item__main-content.feed-shared-main-content--comment,
-            .comments-comment-meta__description-subtitle
-        `);
+        const elements = document.querySelectorAll('main [role="listitem"] p');
+        for (const el of elements) {
+            if (processedTextElements.has(el)) continue;
+            if (el.classList.contains('modified')) continue;
 
-        const filterWordsSet = new Set(filterWords.map(word => word.toLowerCase()));
+            const txt = el.textContent;
+            if (txt.length < POST_TEXT_MIN_LENGTH) continue;
 
-        for (const textViewElement of textViewElements) {
-            if (processedTextElements.has(textViewElement)) continue;
-
-            const postText = textViewElement.innerText.toLowerCase();
-            const matchedWord = Array.from(filterWordsSet).find(word => postText.includes(word));
-            
-            if (matchedWord && !textViewElement.classList.contains('modified')) {
-                log(`Matched filter word: "${matchedWord}" in post:`, postText);
-                textViewElement.innerText = prefix.repeat(13) + '\n' + textViewElement.innerText;
-                textViewElement.style.color = "#ebe7e7";
-                textViewElement.classList.add('modified');
-                textViewElement.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
-                processedTextElements.add(textViewElement);
+            const lower = txt.toLowerCase();
+            let match;
+            for (const w of filterWordsSet) {
+                if (lower.includes(w)) { match = w; break; }
             }
+            if (!match) continue;
+
+            log(`Matched "${match}" in post:`, txt);
+            el.innerText = prefix.repeat(13) + '\n' + el.innerText;
+            el.style.color = "#ebe7e7";
+            el.classList.add('modified');
+            el.querySelectorAll('a').forEach(link => link.style.color = "lightgrey");
+            processedTextElements.add(el);
         }
     }
 
     async function classifyAndModifyImages() {
-        const allMatches = Array.from(document.querySelectorAll(
+        const candidates = Array.from(document.querySelectorAll(
             'img[src*="/feedshare-shrink_"], img[src*="/image-shrink_"]'
-        ));
-        const sizeOk = allMatches.filter(img => img.clientWidth >= 100 || img.clientHeight >= 100);
-        const selectedImages = sizeOk.filter(img => !processedImages.has(img.src) && !imagesAwaitingClassification.has(img.src));
+        )).filter(img =>
+            (img.clientWidth >= 100 || img.clientHeight >= 100) &&
+            !processedImages.has(img.src)
+        );
 
-        log("ClassifyTick", JSON.stringify({
-            allMatches: allMatches.length,
-            sizeOk: sizeOk.length,
-            selected: selectedImages.length,
-            processed: processedImages.size,
-            inflight: imagesAwaitingClassification.size,
-        }));
+        if (!candidates.length) return;
+        log("ClassifyTick", { candidates: candidates.length, processed: processedImages.size });
 
-        const classificationPromises = selectedImages.map(async (img) => {
+        await Promise.all(candidates.map(async img => {
             processedImages.add(img.src);
             try {
-                const classificationPromise = chrome.runtime.sendMessage({
-                    type: 'classifyImage',
-                    url: img.src,
-                });
-                imagesAwaitingClassification.set(img.src, classificationPromise);
-                const response = await classificationPromise;
-                if (response && response.ok && response.label) {
-                    log("Classified", img.src, JSON.stringify(response));
-                    await applyImageOverlay(img, response.label);
-                } else if (response && !response.ok) {
-                    log("Classification error:", JSON.stringify(response));
+                const response = await chrome.runtime.sendMessage({ type: 'classifyImage', url: img.src });
+                if (response?.ok) {
+                    log("Classified", img.src, response);
+                    if (response.label === 'selfpromotional_image') applyImageOverlay(img);
                 } else {
-                    log("Unexpected response:", JSON.stringify(response));
+                    log("Classification error:", response?.error);
                 }
-            } catch (error) {
-                log("Error classifying image:", error);
-            } finally {
-                imagesAwaitingClassification.delete(img.src);
+            } catch (e) {
+                log("Error classifying image:", e);
             }
-        });
-
-        await Promise.all(classificationPromises);
+        }));
     }
 
-    async function applyImageOverlay(img, classification) {
-        if (classification === "selfpromotional_image") {
-            requestAnimationFrame(async () => {
-                const selectedImageUrl = await getSelectedImageUrl();
-                let overlay = document.createElement('img');
-                overlay.src = selectedImageUrl;
-                setOverlayStyle(overlay, img);
-                img.parentNode.insertBefore(overlay, img.nextSibling);
-                requestAnimationFrame(() => {
-                    overlay.style.transition = "opacity 2s";
-                    overlay.style.opacity = 0;
-                    setTimeout(() => {
-                        requestAnimationFrame(() => {
-                            overlay.style.opacity = 0.5;
-                        });
-                    }, 2000);
-                });
-                overlay.addEventListener('click', () => overlay.remove());
-            });
-        }
-    }
-
-    async function getSelectedImageUrl() {
-        return new Promise(resolve => {
-            chrome.storage.sync.get('selectedImage', function (data) {
-                const imageUrlMap = {
-                    'dog_gif': chrome.runtime.getURL("assets/dog.gif"),
-                    'dog_static': chrome.runtime.getURL("assets/dog_static.png")
-                };
-                resolve(imageUrlMap[data.selectedImage] || imageUrlMap.dog_gif);
-            });
-        });
-    }
-    
-    function setOverlayStyle(overlay, img) {
-        overlay.style = `position: absolute; width: ${img.offsetWidth}px; height: ${img.offsetHeight}px; left: 0; top: 0; object-fit: cover; z-index: 1000;`;
-        overlay.style.opacity = 0.5;
-        img.parentNode.style.position = "relative";
-        img.style.objectFit = "cover";
-        log("Overlay style applied:", overlay.style);
+    function applyImageOverlay(img) {
+        const overlay = document.createElement('img');
+        overlay.src = overlayUrl;
+        overlay.style.cssText =
+            `position:absolute;width:${img.offsetWidth}px;height:${img.offsetHeight}px;` +
+            `left:0;top:0;object-fit:cover;z-index:1000;opacity:0.5;transition:opacity 2s;`;
+        img.parentNode.style.position = 'relative';
+        img.style.objectFit = 'cover';
+        img.parentNode.insertBefore(overlay, img.nextSibling);
+        overlay.addEventListener('click', () => overlay.remove());
+        requestAnimationFrame(() => { overlay.style.opacity = '0'; });
+        setTimeout(() => { overlay.style.opacity = '0.5'; }, 2000);
     }
 
     function debounce(func, wait) {
         let timeout;
-        return function executedFunction(...args) {
-            const later = () => {
-                clearTimeout(timeout);
-                func(...args);
-            };
+        return (...args) => {
             clearTimeout(timeout);
-            timeout = setTimeout(later, wait);
+            timeout = setTimeout(() => func(...args), wait);
         };
     }
 
     function setupMutationObserver() {
-        const debouncedModify = debounce(modifyLinkedInContent, 250);
-        let observer = new MutationObserver((mutations) => {
-            if (mutations.some(mutation => mutation.type === 'childList' && mutation.addedNodes.length > 0)) {
-                debouncedModify();
+        const debounced = debounce(modifyLinkedInContent, 250);
+        const observer = new MutationObserver(mutations => {
+            if (mutations.some(m => m.type === 'childList' && m.addedNodes.length > 0)) {
+                debounced();
             }
         });
-        const targetNode = document.querySelector('#main-feed') || document.body;
-        observer.observe(targetNode, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: true });
     }
-    
-    async function loadStorageData(key) {
-        return new Promise((resolve, reject) => {
-            chrome.storage.sync.get(key, function(data) {
-                if (chrome.runtime.lastError) {
-                    log(`Error loading ${key}:`, chrome.runtime.lastError);
-                    reject(chrome.runtime.lastError);
-                } else {
-                    let result = data[key];
-                    log(`Loaded ${key}:`, result);
-                    if (key === 'filterWordsPrefix') {
-                        // For filterWordsPrefix, we expect a single string value
-                        resolve(result || '');
-                    } else if (typeof result === 'string') {
-                        // For other keys, split string into array if necessary
-                        resolve(result.split(',').map(item => item.trim()));
-                    } else {
-                        resolve(result || []);
-                    }
-                }
-            });
-        });
-    }    
 
     async function modifyLinkedInContent() {
         await modifyLinkedInPosts();

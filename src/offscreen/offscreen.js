@@ -7,7 +7,6 @@ const AREA_THRESHOLD = 0.02;
 const MIN_SCORE_FOR_SELFPROMO = 0.7;
 const MIN_DETECTION_CONFIDENCE = 0.5;
 const MAX_FACES_FOR_SELFPROMO = 2;
-const VERBOSE = true;
 
 let detectorPromise = null;
 
@@ -40,38 +39,28 @@ async function classifyUrl(url) {
   try {
     const { detections } = detector.detect(bitmap);
     const total = bitmap.width * bitmap.height;
-    const perFace = detections.map((d) => {
+    let largestArea = 0;
+    let largestScore = 0;
+    for (const d of detections) {
       const b = d.boundingBox;
-      const score = d.categories?.[0]?.score ?? 0;
-      const area = b ? (b.width * b.height) / total : 0;
-      return { area: +area.toFixed(4), score: +score.toFixed(3) };
-    });
-    const largest = perFace.reduce(
-      (m, f) => (f.area > m.area ? f : m),
-      { area: 0, score: 0 },
-    );
+      if (!b) continue;
+      const area = (b.width * b.height) / total;
+      if (area > largestArea) {
+        largestArea = area;
+        largestScore = d.categories?.[0]?.score ?? 0;
+      }
+    }
     const isSelfPromo =
       detections.length >= 1 &&
       detections.length <= MAX_FACES_FOR_SELFPROMO &&
-      largest.score >= MIN_SCORE_FOR_SELFPROMO &&
-      largest.area >= AREA_THRESHOLD;
-    const result = {
+      largestScore >= MIN_SCORE_FOR_SELFPROMO &&
+      largestArea >= AREA_THRESHOLD;
+    return {
       label: isSelfPromo ? "selfpromotional_image" : "other",
       faces: detections.length,
-      largestArea: +largest.area.toFixed(4),
-      largestScore: +largest.score.toFixed(3),
-      bitmapW: bitmap.width,
-      bitmapH: bitmap.height,
-      perFace,
+      largestArea: +largestArea.toFixed(4),
+      largestScore: +largestScore.toFixed(3),
     };
-    if (VERBOSE) {
-      console.log(
-        "[unhumbled-offscreen] classify",
-        JSON.stringify(result),
-        url.slice(0, 80),
-      );
-    }
-    return result;
   } finally {
     bitmap.close();
   }
