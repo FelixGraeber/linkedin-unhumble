@@ -56,7 +56,7 @@ if label is `selfpromotional_image`, the content script overlays the dog.
 
 - no comments unless explaining a non-obvious *why*
 - no build step — keep the extension loadable as-is from a checkout
-- vendored deps in `src/vendor/`; don't edit, bump versions and update `notice`
+- vendored deps in `src/vendor/`; don't edit, bump versions and update `NOTICE`
 - conventional commit prefixes: `feat:`, `fix:`, `refactor:`, `chore:`, `docs:`, `test:`
 - atomic commits — one concern per commit
 
